@@ -1,0 +1,30 @@
+# Derleme çıktıları
+bin/
+obj/
+out/
+publish/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.suo
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# NuGet
+*.nupkg
+packages/
+
+# Test sonuçları
+TestResults/
+[Cc]overage*/
+
+# smartctl binary'leri (kullanıcı kendi indirir; lisans nedeniyle repoya koymuyoruz)
+tools/*.exe
+tools/*.dll
+
+# İşletim sistemi
+Thumbs.db
+.DS_Store

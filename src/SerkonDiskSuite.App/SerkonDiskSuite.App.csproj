@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>SerkonDiskSuite</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- Tek dosya, kendi kendine yeten yayın için (dotnet publish) -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SerkonDiskSuite.Core\SerkonDiskSuite.Core.csproj" />
+    <ProjectReference Include="..\SerkonDiskSuite.Infrastructure\SerkonDiskSuite.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- smartctl.exe'yi çıktı ile birlikte tools/ altına kopyala (varsa) -->
+  <ItemGroup>
+    <None Include="..\..\tools\**\*" Link="tools\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tools')" />
+  </ItemGroup>
+
+</Project>
