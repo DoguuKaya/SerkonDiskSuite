@@ -14,7 +14,7 @@ namespace SerkonDiskSuite.Infrastructure.Wmi;
 public sealed class WmiDiskProvider : IDiskProvider
 {
     public Task<IReadOnlyList<DiskInfo>> GetDisksAsync(CancellationToken ct = default)
-        => Task.Run<IReadOnlyList<DiskInfo>>(() =>
+        => Task.Run<IReadOnlyList<DiskInfo>>(async () =>
         {
             var disks = new List<DiskInfo>();
 
@@ -31,9 +31,16 @@ public sealed class WmiDiskProvider : IDiskProvider
                 string firmware = drive["FirmwareRevision"]?.ToString()?.Trim() ?? "";
                 long size = drive["Size"] is not null ? Convert.ToInt64(drive["Size"]) : 0;
                 string interfaceType = drive["InterfaceType"]?.ToString() ?? "";
+                string pnpDeviceId = drive["PNPDeviceID"]?.ToString() ?? "";
 
                 var letters = GetDriveLetters(drive, ct);
-                var busType = MapBusType(interfaceType, model);
+                var busType = MapBusType(interfaceType, model, pnpDeviceId);
+
+                // PCIe link bilgisi yalnızca NVMe disklerinde anlamlıdır; SATA/USB için
+                // ayrı bir aktarım hızı kavramı WMI'dan güvenilir okunamaz.
+                string? transferMode = busType == DiskBusType.Nvme
+                    ? await PcieLinkInfoReader.TryReadAsync(pnpDeviceId, ct)
+                    : null;
 
                 disks.Add(new DiskInfo
                 {
@@ -44,8 +51,8 @@ public sealed class WmiDiskProvider : IDiskProvider
                     CapacityBytes = size,
                     BusType = busType,
                     DriveLetters = letters,
-                    // RotationRate ve TransferMode WMI'da güvenilir değil;
-                    // bunlar SMART katmanından zenginleştirilebilir.
+                    TransferMode = transferMode,
+                    // RotationRate WMI'da güvenilir değil; SMART katmanından zenginleştirilebilir.
                 });
             }
 
@@ -85,10 +92,14 @@ public sealed class WmiDiskProvider : IDiskProvider
         return letters;
     }
 
-    private static DiskBusType MapBusType(string interfaceType, string model)
+    private static DiskBusType MapBusType(string interfaceType, string model, string pnpDeviceId)
     {
-        // WptType bazen "SCSI" der; model adından NVMe çıkarımı destekler.
-        if (model.Contains("NVMe", StringComparison.OrdinalIgnoreCase))
+        // InterfaceType NVMe disklerde genelde "SCSI" döner (Windows depolama yığını NVMe'yi
+        // bir SCSI miniport soyutlamasıyla sunar); model adı da çoğu gerçek üründe "NVMe"
+        // geçmez (ör. "KINGSTON SNV2S1000G"). Güvenilir işaret, PNPDeviceID içindeki
+        // "VEN_NVME" belirtecidir (ör. "SCSI\DISK&VEN_NVME&PROD_...").
+        if (model.Contains("NVMe", StringComparison.OrdinalIgnoreCase)
+            || pnpDeviceId.Contains("VEN_NVME", StringComparison.OrdinalIgnoreCase))
             return DiskBusType.Nvme;
 
         return interfaceType.ToUpperInvariant() switch

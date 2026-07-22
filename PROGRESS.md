@@ -72,18 +72,59 @@ istisna, benchmark hiçbir zaman ilerlemiyordu.
 **Değişiklik:**
 `src/SerkonDiskSuite.Infrastructure/Benchmark/DiskBenchmarkRunner.cs`
 
+### 3. ÖZELLİK: PCIe link speed/width tespiti (TAMAMLANDI — 2026-07-22)
+
+`DiskInfo.TransferMode` NVMe diskler için artık dolduruluyor (ör.
+`"PCIe 3.0 x4 (maks. PCIe 4.0 x4)"`).
+
+**Yaklaşım:** PCIe link hızı/genişliği (`DEVPKEY_PciDevice_CurrentLinkSpeed`
+/ `CurrentLinkWidth` / `MaxLinkSpeed` / `MaxLinkWidth`) klasik WMI
+(System.Management) üzerinden sorgulanamıyor; bu özellik disk PNP
+cihazının üstündeki gerçek PCI denetleyici (NVMe controller) cihazında
+bulunuyor ve `DEVPKEY_Device_Parent` zinciri izlenerek bulunmalı.
+`smartctl` deseninde olduğu gibi, Windows'un kendi getirdiği `PnpDevice`
+PowerShell modülü (`Get-PnpDeviceProperty`) alt süreç olarak
+çalıştırılıp JSON çıktısı parse ediliyor — ham SetupAPI P/Invoke'a göre
+çok daha az riskli.
+
+Yeni dosya: `src/SerkonDiskSuite.Infrastructure/Wmi/PcieLinkInfoReader.cs`
+
+**Yol boyunca bulunup düzeltilen 2 yan bug:**
+1. `WmiDiskProvider.MapBusType`, NVMe tespitini yalnızca model adında
+   "NVMe" geçip geçmediğine bakarak yapıyordu. Gerçek donanımda
+   (`KINGSTON SNV2S1000G`) model adı "NVMe" içermiyor ve WMI
+   `InterfaceType` "SCSI" dönüyor, bu yüzden disk yanlışlıkla
+   `DiskBusType.Scsi` olarak işaretleniyordu. Düzeltme: `PNPDeviceID`
+   içindeki `VEN_NVME` işareti de artık kontrol ediliyor (WMI'nin NVMe
+   diskleri SCSI miniport soyutlamasıyla sunmasının standart izi).
+2. `PcieLinkInfoReader` ilk halinde `powershell.exe -Command "<script>"
+   <instanceId>` şeklinde instanceId'yi ayrı bir process argümanı olarak
+   geçiriyordu. PowerShell'de `-Command`'den sonraki TÜM argümanlar tek
+   bir script metni olarak birleştirilip çalıştırılır; ayrı bir
+   parametreye bağlanmaz. Bu yüzden `PNPDeviceID` içindeki `&`
+   karakterleri PowerShell operatörü sanılıp `ParserError` fırlatıyordu.
+   Düzeltme: instanceId artık tek-tırnaklı bir PowerShell string
+   literali olarak script metninin içine gömülüyor.
+
+**Doğrulama:** Gerçek makinede (`KINGSTON SNV2S1000G` NVMe SSD) hem
+`Get-PnpDeviceProperty` zincirinin bağımsız PowerShell testiyle hem de
+`WmiDiskProvider.GetDisksAsync()` üzerinden uçtan uca harness ile
+doğrulandı: `BusType=Nvme`, `TransferMode="PCIe 3.0 x4 (maks. PCIe 4.0
+x4)"`. `dotnet build`: 0 hata/uyarı. `dotnet test`: 16/16 başarılı.
+
 ## Devam eden iş
 
-- Yok (iki bug de çözüldü, bir sonraki adıma geçiliyor).
+- Yok.
 
 ## Sıradaki işler (öncelik sırasına göre)
 
 1. **SMART verilerinin arayüzde doğru görünmesini test et** — uygulamayı
    yönetici olarak çalıştırıp (UAC nedeniyle bu adım kullanıcı
    etkileşimi/manuel çalıştırma gerektirebilir) `HealthViewModel`'in
-   gerçek SMART verisiyle dolduğunu doğrula.
-2. CLAUDE.md genişletme fikirleri (sırayla):
-   - PCIe link speed/width tespiti (şu an `TransferMode` boş)
+   gerçek SMART verisiyle dolduğunu doğrula. **Bu ajan oturumunda
+   yükseltilmemiş (non-admin) kabuk yüzünden yapılamadı — kullanıcının
+   uygulamayı yönetici olarak çalıştırıp kontrol etmesi gerekiyor.**
+2. Kalan CLAUDE.md genişletme fikirleri (sırayla):
    - Gerçek zamanlı sıcaklık grafiği (LiveCharts2)
    - SMART verisini periyodik loglama + trend
    - Firmware güncelleme uyarısı
