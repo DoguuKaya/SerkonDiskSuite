@@ -103,10 +103,15 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         FillRandom(buffer);
 
         var access = isWrite ? FileAccess.Write : FileAccess.Read;
-        var mode = isWrite ? FileMode.OpenOrCreate : FileMode.Open;
+        // Preallocation yalnizca dosyayi (yeniden) olusturan modlarla (Create/CreateNew/Truncate)
+        // kullanilabilir; OpenOrCreate veya Open ile preallocationSize>0 verilirse ArgumentException
+        // firlar. Yazma gecisleri her seferinde dosyayi tazeden olusturur, okuma gecisleri var olan
+        // dosyayi acar ve preallocation istemez.
+        var mode = isWrite ? FileMode.Create : FileMode.Open;
         var opts = NoBuffering | FileOptions.WriteThrough;
+        long preallocationSize = isWrite ? fileSize : 0;
 
-        using var handle = File.OpenHandle(filePath, mode, access, FileShare.None, opts, fileSize);
+        using var handle = File.OpenHandle(filePath, mode, access, FileShare.None, opts, preallocationSize);
 
         var rng = new Random(12345); // deterministik erişim deseni
         var sw = Stopwatch.StartNew();

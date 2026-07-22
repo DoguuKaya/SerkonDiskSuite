@@ -45,9 +45,36 @@ hatası dönüyor — bu, yönetici hakkı olmadığı için beklenen bir durum
 çalıştırıldığında SMART verisi okunmalı; bir sonraki adımda gerçek
 uygulama üzerinden (yönetici hakkıyla) doğrulanacak.
 
+### 2. BUG: Benchmark sekmesi hiç çalışmıyordu (ÇÖZÜLDÜ — 2026-07-22)
+
+**Kök neden:** `DiskBenchmarkRunner.RunSinglePass`, `File.OpenHandle(...)`
+çağrısına her zaman `fileSize`'ı `preallocationSize` parametresi olarak
+geçiriyordu. .NET çalışma zamanı, preallocation'ın yalnızca dosyayı
+(yeniden) oluşturan modlarla (`Create`/`CreateNew`/`Truncate`)
+kullanılabileceğini şart koşuyor; `OpenOrCreate` (yazma geçişleri) veya
+`Open` (okuma geçişleri) ile `preallocationSize > 0` verilirse
+`ArgumentException: "Preallocation size can be requested only for new
+files."` fırlatıyor. Sonuç: ilk `SequentialWrite` geçişinde anında
+istisna, benchmark hiçbir zaman ilerlemiyordu.
+
+**Doğrulama:**
+- `%TEMP%` altında geçici bir harness ile gerçek `DiskBenchmarkRunner`
+  4 MiB'lık bir test dosyasıyla çalıştırıldı; düzeltmeden önce yukarıdaki
+  `ArgumentException` birebir reprodüklendi.
+- Düzeltme: yazma geçişlerinde `FileMode.Create` + `preallocationSize =
+  fileSize`; okuma geçişlerinde `FileMode.Open` + `preallocationSize = 0`.
+- Aynı harness'le tekrar çalıştırıldı: 4 test türü de (SequentialWrite/
+  Read, RandomWrite/Read) başarıyla tamamlandı, gerçekçi throughput/IOPS
+  değerleri döndü. Harness iş bitince silindi (repoya dahil değil).
+- `dotnet build` (tüm çözüm): 0 hata / 0 uyarı.
+- `dotnet test`: 16/16 test başarılı.
+
+**Değişiklik:**
+`src/SerkonDiskSuite.Infrastructure/Benchmark/DiskBenchmarkRunner.cs`
+
 ## Devam eden iş
 
-- Yok (bug fix tamamlandı, bir sonraki adıma geçiliyor).
+- Yok (iki bug de çözüldü, bir sonraki adıma geçiliyor).
 
 ## Sıradaki işler (öncelik sırasına göre)
 
@@ -55,9 +82,7 @@ uygulama üzerinden (yönetici hakkıyla) doğrulanacak.
    yönetici olarak çalıştırıp (UAC nedeniyle bu adım kullanıcı
    etkileşimi/manuel çalıştırma gerektirebilir) `HealthViewModel`'in
    gerçek SMART verisiyle dolduğunu doğrula.
-2. **Benchmark sekmesini doğrula** — `DiskBenchmarkRunner` ile gerçek bir
-   okuma/yazma testi çalıştırıp sonuçların arayüze yansıdığını kontrol et.
-3. CLAUDE.md genişletme fikirleri (sırayla):
+2. CLAUDE.md genişletme fikirleri (sırayla):
    - PCIe link speed/width tespiti (şu an `TransferMode` boş)
    - Gerçek zamanlı sıcaklık grafiği (LiveCharts2)
    - SMART verisini periyodik loglama + trend
