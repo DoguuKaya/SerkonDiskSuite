@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Windows.Data;
-using SerkonDiskSuite.App.Formatting;
+using SerkonDiskSuite.Core.Formatting;
 using SerkonDiskSuite.Core.Models;
 
 namespace SerkonDiskSuite.App.Converters;

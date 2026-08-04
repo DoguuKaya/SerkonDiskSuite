@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace SerkonDiskSuite.App.Formatting;
+namespace SerkonDiskSuite.Core.Formatting;
 
 /// <summary>Türkçe (tr-TR) yerelleştirilmiş sayı/bayt/süre biçimlendirme yardımcıları.</summary>
 public static class DisplayFormatting

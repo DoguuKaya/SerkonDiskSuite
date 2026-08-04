@@ -1,7 +1,7 @@
 using System.Globalization;
 using SerkonDiskSuite.Core.Models;
 
-namespace SerkonDiskSuite.App.Formatting;
+namespace SerkonDiskSuite.Core.Formatting;
 
 /// <summary>
 /// SMART öznitelik ham değerini, öznitelik adına göre anlamlı bir birime çevirip

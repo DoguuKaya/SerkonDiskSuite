@@ -329,12 +329,33 @@ Mica arka planın gerçekten uygulandığı, NavigationView'ın üstte sekme
 gibi göründüğü, `ui:SymbolIcon` simgelerinin (Heart24/DataHistogram24/
 Desktop24) doğru render edildiği gözle kontrol edilmeli.
 
+### 12. ADIM 3 — SMART etiket/format mantığını Core'a taşıma + birim testleri (TAMAMLANDI — 2026-08-04)
+
+`Formatting/DisplayFormatting.cs`, `SmartAttributeLabels.cs`,
+`SmartAttributeValueFormatter.cs` `SerkonDiskSuite.App`'ten
+`SerkonDiskSuite.Core` katmanına taşındı (Core zaten sıfır dış
+bağımlılıklı; bu sınıflar da salt string/sayı mantığı, herhangi bir
+WPF/UI bağımlılığı yok). `Converters.cs`/`SmartAttributeConverters.cs`
+artık `SerkonDiskSuite.Core.Formatting` namespace'ini kullanıyor. Ham ad
+hâlâ DataGrid hücresinin ToolTip'inde gösteriliyor (davranış değişmedi,
+sadece mantığın konumu değişti).
+
+22 yeni xUnit testi eklendi (`DisplayFormattingTests`,
+`SmartAttributeLabelsTests`, `SmartAttributeValueFormatterTests`) —
+bayt/saat/sayı tr-TR biçimlendirmesi, bilinen/bilinmeyen öznitelik adı
+eşlemesi, `data_units_read` -> TB dönüşümü (17.226.562 birim ->
+8.819.999.744.000 bayt -> "8,02 TB", elle hesaplanıp doğrulandı),
+yüzde biçimlendirme, sayısal olmayan bileşik ham değerlerin değişmeden
+bırakılması.
+
+**Doğrulama:** `dotnet build`: 0 hata. `dotnet test`: **38/38 başarılı**
+(16 eski + 22 yeni).
+
 ## Devam eden iş
 
-- WPF-UI migrasyonu sürüyor (ADIM 3-5: SMART etiket/format mantığını
-  Core'a taşıma + testler, benchmark gerçek ilerleme yüzdesi). Disk
-  format/partition özelliğine bu turda da kasıtlı olarak girilmiyor —
-  kullanıcı ayrıca konuşulacağını belirtti.
+- WPF-UI migrasyonu sürüyor (ADIM 5 kalanı: benchmark gerçek ilerleme
+  yüzdesi). Disk format/partition özelliğine bu turda da kasıtlı olarak
+  girilmiyor — kullanıcı ayrıca konuşulacağını belirtti.
 
 ## Sıradaki işler (öncelik sırasına göre)
 

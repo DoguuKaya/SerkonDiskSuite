@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace SerkonDiskSuite.App.Formatting;
+namespace SerkonDiskSuite.Core.Formatting;
 
 /// <summary>
 /// Ham SMART öznitelik adlarını (ör. "data_units_read", "Power_On_Hours") okunabilir

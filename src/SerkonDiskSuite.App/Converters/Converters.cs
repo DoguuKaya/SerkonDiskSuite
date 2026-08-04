@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
-using SerkonDiskSuite.App.Formatting;
+using SerkonDiskSuite.Core.Formatting;
 using SerkonDiskSuite.Core.Models;
 
 namespace SerkonDiskSuite.App.Converters;
