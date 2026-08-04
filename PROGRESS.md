@@ -161,11 +161,24 @@ hesaplayarak doğruladım ama gerçek render'ı (font kalınlığı, TabItem
 geçişleri, ScrollBar görünümü) uygulamayı açıp gözle kontrol etmeniz
 gerekiyor.
 
+### 5. ÖZELLİK: Disk detay şeridi (TAMAMLANDI — 2026-08-04)
+
+Üst başlık ile sekmeler arasına, seçili diskin donanım bilgilerini
+gösteren yatay bir şerit eklendi: Tür (SSD/HDD) + Arayüz (NVMe/SATA/...),
+Bağlantı (TransferMode, ör. "PCIe 3.0 x4 (maks. PCIe 4.0 x4)"; disk
+bilgisi yoksa bu rozet gizleniyor), Firmware sürümü, Seri No. Tüm alanlar
+zaten `DiskInfo` modelinde vardı; sadece UI'da eksikti.
+`Views/MainWindow.xaml` Grid satırları buna göre kaydırıldı (üst şerit
+Auto, içerik `*`, durum çubuğu Auto).
+
+**Doğrulama:** `dotnet build`: 0 hata/uyarı. `dotnet test`: 16/16 başarılı.
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı.**
+
 ## Devam eden iş
 
-- (B) eksik özellikler sırayla ekleniyor: disk detay paneli, sağlık
-  özet kartları (+AvailableSpare), benchmark IOPS/blok boyutu, gerçek
-  zamanlı sıcaklık grafiği (LiveCharts2), SMART trend loglama.
+- (B) kalan özellikler sırayla ekleniyor: sağlık özet kartları
+  (+AvailableSpare), benchmark IOPS/blok boyutu, gerçek zamanlı sıcaklık
+  grafiği (LiveCharts2), SMART trend loglama.
 
 ## Sıradaki işler (öncelik sırasına göre)
 
