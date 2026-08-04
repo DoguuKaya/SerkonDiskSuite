@@ -32,6 +32,16 @@ public interface ISystemInfoProvider
     Task<SystemSummary> GetSummaryAsync(CancellationToken ct = default);
 }
 
+/// <summary>SMART okumalarının zaman içindeki trendini kalıcı olarak saklar (ör. JSON dosyası).</summary>
+public interface ISmartTrendStore
+{
+    /// <summary>Belirli bir disk için daha önce kaydedilmiş trend noktalarını (kronolojik sırayla) yükler.</summary>
+    Task<IReadOnlyList<SmartTrendPoint>> LoadAsync(string diskKey, CancellationToken ct = default);
+
+    /// <summary>Belirli bir disk için yeni bir trend noktası ekler.</summary>
+    Task AppendAsync(string diskKey, SmartTrendPoint point, CancellationToken ct = default);
+}
+
 /// <summary>Sistem özeti modeli.</summary>
 public sealed class SystemSummary
 {

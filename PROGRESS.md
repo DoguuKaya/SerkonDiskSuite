@@ -235,29 +235,72 @@ tarafından elle yapılmalı** — grafiğin gerçekten çizildiği, sekme
 değişince döngünün durduğu ve SkiaSharp render'ının WPF içinde sorunsuz
 çalıştığı (GPU/donanım bağımlı olabilir) gözle kontrol edilmeli.
 
+### 9. ÖZELLİK: SMART trend loglama (JSON dosyasına) (TAMAMLANDI — 2026-08-04)
+
+`Core.Models.SmartTrendPoint` (Timestamp + TemperatureCelsius) ve
+`Core.Interfaces.ISmartTrendStore` eklendi;
+`Infrastructure/Trend/JsonSmartTrendStore` bunu disk başına bir JSON
+dosyasında (`%LOCALAPPDATA%\SerkonDiskSuite\trend\<seri no>.json`,
+seri no yoksa DevicePath) uyguluyor — dosya en fazla son 20.000 noktayı
+tutacak şekilde budanıyor. `HealthViewModel`, izleme döngüsünün her
+periyodunda okuduğu sıcaklığı bu depoya ekliyor (`AppendAsync`); disk
+seçildiğinde ise depodan geçmişi yükleyip **canlı grafiğin aynı 15
+dakikalık penceresine düşen** noktaları önceden dolduruyor
+(`LoadHistoryThenStartMonitoringAsync`) — böylece uygulama yeniden
+açıldığında grafik bomboş başlamıyor. Kalıcı dosyanın kendisi geçmişin
+tamamını (budama sınırına kadar) tutmaya devam ediyor; yalnızca canlı
+grafiğin gösterdiği pencere 15 dakikayla sınırlı (task 7'nin "son N
+dakika" kapsamıyla tutarlı kalması için bilinçli bir tasarım tercihi —
+PROGRESS.md'de not düşülüyor ki gelecekte "tam geçmiş" için ayrı bir
+görünüm istenirse bu depo zaten hazır).
+
+**Doğrulama:** `dotnet build`: 0 hata. `dotnet test`: 16/16 başarılı.
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — özellikle
+uygulamayı kapatıp birkaç dakika içinde yeniden açtığınızda grafiğin
+kapanmadan önceki noktaları gösterdiğini doğrulayın; ayrıca
+`%LOCALAPPDATA%\SerkonDiskSuite\trend\` altında dosyaların oluştuğunu
+kontrol edin.
+
+## (A) + (B) — Bu turun tüm işleri tamamlandı
+
+Kullanıcının bu turda istediği hem arayüz yeniden tasarımı (A) hem de
+eksik özellikler (B) tamamlandı. Kalan tek şey **kullanıcının elle
+görsel doğrulama yapması** (bkz. aşağıdaki liste) — bu ajan oturumunda
+WPF render'ı görülemiyor.
+
 ## Devam eden iş
 
-- (B) son kalan özellik: SMART trend loglama (JSON dosyasına yazma +
-  açılışta geçmişi yükleme).
+- Yok. (Disk format/partition özelliğine bu turda kasıtlı olarak
+  girilmedi — kullanıcı ayrıca konuşulacağını belirtti.)
 
 ## Sıradaki işler (öncelik sırasına göre)
 
-1. **Kullanıcı elle kontrol etmeli:** Yeni Theme.xaml stillerinin gerçek
-   görünümü (DataGrid okunabilirliği, TabItem geçişleri, ScrollBar,
-   TextBox odak rengi) — WPF render'ı bu ajan oturumunda görülemiyor.
-2. **SMART verilerinin arayüzde doğru görünmesini test et** — uygulamayı
-   yönetici olarak çalıştırıp `HealthViewModel`'in gerçek SMART
-   verisiyle dolduğunu doğrula (UAC nedeniyle kullanıcı etkileşimi
-   gerekebilir).
-3. (B) görevleri: disk detay paneli, sağlık özet kartları, benchmark
-   IOPS/blok boyutu, gerçek zamanlı sıcaklık grafiği, trend loglama.
-4. Firmware güncelleme uyarısı, çoklu dil desteği (ileri aşama fikirleri).
+1. **Kullanıcı elle kontrol etmeli (bu ajan oturumunda WPF render'ı
+   görülemiyor):**
+   - Theme.xaml: DataGrid okunabilirliği (satır/hücre metni, seçim ve
+     hover renkleri, alternating row), TabItem geçişleri (seçili/hover/
+     normal), ScrollBar görünümü, TextBox odak rengi, yeni ComboBox'ın
+     (blok boyutu seçici) açılır listesinin doğru konumlanması.
+   - Disk detay şeridi, sağlık özet kartları (3x3 grid) ve benchmark
+     IOPS/blok boyutu alanlarının gerçek SMART/benchmark verisiyle
+     doğru dolduğu (yönetici olarak çalıştırıp kontrol edilmeli — UAC).
+   - Sıcaklık grafiğinin gerçekten çizildiği, sekme değiştirilince arka
+     plan izleme döngüsünün durduğu (ör. Görev Yöneticisi'nde smartctl
+     alt sürecinin sekmeden çıkınca tetiklenmediğini gözlemleyerek).
+   - Uygulamayı kapatıp yeniden açtığınızda sıcaklık grafiğinin önceki
+     oturumdan kalan (son 15 dakikaya düşen) noktalarla başladığı ve
+     `%LOCALAPPDATA%\SerkonDiskSuite\trend\` altında JSON dosyalarının
+     oluştuğu.
+2. Firmware güncelleme uyarısı, çoklu dil desteği (ileri aşama fikirleri
+   — henüz başlanmadı).
+3. Disk format/partition özelliği — kullanıcıyla ayrıca konuşulacak,
+   bu turda kasıtlı olarak dokunulmadı.
 
 ## Bilinen buglar
 
-- Yok (aktif olarak bilinen başka bug yok; SMART/Benchmark sekmeleri henüz
-  gerçek donanımda uçtan uca test edilmedi; yeni arayüz stilleri henüz
-  gerçek render ile gözle doğrulanmadı — bkz. yukarıdaki not).
+- Yok (aktif olarak bilinen başka bug yok; SMART/Benchmark sekmeleri ve
+  yeni arayüz/grafik/trend loglama özellikleri henüz gerçek donanımda
+  gözle uçtan uca doğrulanmadı — bkz. yukarıdaki manuel kontrol listesi).
 
 ## Notlar
 
