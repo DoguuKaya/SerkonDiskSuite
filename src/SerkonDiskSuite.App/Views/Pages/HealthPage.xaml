@@ -8,6 +8,7 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:viewModels="clr-namespace:SerkonDiskSuite.App.ViewModels"
       Title="Sağlık (SMART)"
+      x:Name="Root"
       d:DataContext="{d:DesignInstance Type=viewModels:HealthViewModel}"
       mc:Ignorable="d">
 
@@ -118,7 +119,8 @@
             <TextBlock Grid.Row="4" Text="SMART Öznitelikleri" Style="{StaticResource Heading}" Margin="0,12,0,4" />
             <DataGrid Grid.Row="5" ItemsSource="{Binding Attributes}">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60" />
+                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"
+                                         Visibility="{Binding DataContext.IsIdColumnVisible, ElementName=Root, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
                     <DataGridTextColumn Header="Öznitelik" Width="*"
                                          Binding="{Binding Converter={StaticResource SmartAttributeName}}">
                         <DataGridTextColumn.ElementStyle>

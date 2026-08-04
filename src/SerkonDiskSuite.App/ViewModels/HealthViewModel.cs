@@ -35,6 +35,10 @@ public partial class HealthViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string? _error;
 
+    /// <summary>NVMe disklerde SMART öznitelik ID'si yok (hep "-"); bu yüzden tablodaki
+    /// ID kolonu NVMe'de gizlenir, SATA'da görünür kalır.</summary>
+    [ObservableProperty] private bool _isIdColumnVisible = true;
+
     /// <summary>LiveCharts'ın arka plan iş parçacığından güvenle güncellenebilmesi için kilit nesnesi.</summary>
     public object ChartSyncObject { get; } = new();
 
@@ -93,6 +97,7 @@ public partial class HealthViewModel : ObservableObject, IDisposable
         Health = null;
         Attributes.Clear();
         Error = null;
+        IsIdColumnVisible = disk is null || disk.BusType != DiskBusType.Nvme;
         StopMonitoring();
 
         lock (ChartSyncObject)

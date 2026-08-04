@@ -25,7 +25,7 @@
         <!-- Disk detay şeridi (seçili diskin donanım bilgileri) -->
         <ui:Card Grid.Row="1" Margin="8,0,8,8" Padding="12,10"
                  Visibility="{Binding SelectedDisk, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
-            <StackPanel Orientation="Horizontal" DataContext="{Binding SelectedDisk}">
+            <WrapPanel Orientation="Horizontal" DataContext="{Binding SelectedDisk}">
                 <TextBlock Text="{Binding ModelName}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" Margin="0,0,16,0" />
 
                 <Border Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="6" Padding="8,4" Margin="0,0,8,0">
@@ -58,7 +58,7 @@
                         <Run Text="{Binding SerialNumber, Mode=OneWay}" />
                     </TextBlock>
                 </Border>
-            </StackPanel>
+            </WrapPanel>
         </ui:Card>
 
         <Grid Grid.Row="2">

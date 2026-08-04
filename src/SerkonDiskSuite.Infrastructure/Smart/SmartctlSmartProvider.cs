@@ -179,6 +179,13 @@ public sealed class SmartctlSmartProvider : ISmartProvider
             {
                 if (prop.Value.ValueKind is JsonValueKind.Number)
                 {
+                    // nsid (ad alanı no) -1 ise bu diskte/ortamda anlamsızdır; satırı hiç ekleme.
+                    if (prop.Name.Equals("nsid", StringComparison.OrdinalIgnoreCase)
+                        && prop.Value.TryGetInt64(out long nsid) && nsid == -1)
+                    {
+                        continue;
+                    }
+
                     list.Add(new SmartAttribute(
                         Id: "-",
                         Name: prop.Name,

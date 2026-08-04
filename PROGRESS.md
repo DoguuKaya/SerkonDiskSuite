@@ -595,6 +595,37 @@ gözle kontrol edilmeli.
 `src/SerkonDiskSuite.Infrastructure/Benchmark/DiskBenchmarkRunner.cs`,
 `tests/SerkonDiskSuite.Tests/BenchmarkTestKindLabelsTests.cs` (yeni)
 
+### 19. BUG: SMART tablosu temizliği (ÇÖZÜLDÜ — 2026-08-04)
+
+Üç ayrı küçük düzeltme:
+- **ID kolonu:** NVMe disklerde öznitelik ID'si yok, `SmartctlSmartProvider`
+  hep `Id: "-"` üretiyordu. `HealthViewModel.IsIdColumnVisible` eklendi
+  (`SetDisk` içinde `disk.BusType != DiskBusType.Nvme` ile hesaplanır),
+  `HealthPage.xaml`'de ID kolonunun `Visibility`'si buna bağlandı
+  (`DataGridColumn` görsel ağaçta olmadığından `ElementName=Root` ile
+  Page'in `DataContext`'ine ulaşıldı).
+- **nsid=-1:** `SmartctlSmartProvider.ExtractAttributes`, NVMe log'unu
+  düzleştirirken `nsid` alanı `-1` ise artık o satırı hiç eklemiyor
+  (kaynağında filtrelendi, UI'da özel durum kodu gerekmedi).
+- **Seri no kesilmesi:** `MainWindow.xaml`'deki disk detay şeridi
+  `StackPanel` (taşan içeriği kırpar) yerine `WrapPanel` kullanıyor;
+  dar pencerede rozetler ikinci satıra kayar ama seri numarası hiçbir
+  zaman kırpılmaz.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 48/48
+başarılı (bu maddede yeni test istenmedi; `SmartctlSmartProvider`
+Infrastructure katmanında ve gerçek smartctl JSON'ına bağlı, mevcut test
+altyapısı yalnızca Core'u kapsıyor). Canlı çalıştırma testi bu madde için
+gerekli görülmedi (tempo kararı).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — gerçek bir
+NVMe ve bir SATA diskte ID kolonunun doğru gizlenip/görünüp göründüğü,
+nsid=-1 satırının artık listede olmadığı, seri numarasının artık tam
+göründüğü (gerekirse ikinci satıra kayarak) gözle kontrol edilmeli.
+
+**Değişiklik:** `src/SerkonDiskSuite.App/ViewModels/HealthViewModel.cs`,
+`Views/Pages/HealthPage.xaml`, `Views/MainWindow.xaml`,
+`src/SerkonDiskSuite.Infrastructure/Smart/SmartctlSmartProvider.cs`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak
