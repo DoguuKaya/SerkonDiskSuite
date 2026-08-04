@@ -268,10 +268,25 @@ eksik özellikler (B) tamamlandı. Kalan tek şey **kullanıcının elle
 görsel doğrulama yapması** (bkz. aşağıdaki liste) — bu ajan oturumunda
 WPF render'ı görülemiyor.
 
+## Yeni tur: WPF-UI (lepoco/wpfui) migrasyonu
+
+### 10. ADIM 1 — WPF-UI kurulumu (TAMAMLANDI — 2026-08-04)
+
+`SerkonDiskSuite.App`'e iki NuGet paketi eklendi, sürüm tahmin edilmedi —
+`dotnet add package` ile nuget.org'dan çözümlenen gerçek sürüm doğrulandı:
+- `WPF-UI` **4.3.0** (lepoco/wpfui, MIT)
+- `WPF-UI.DependencyInjection` **4.3.0** (resmi DI uzantısı — NavigationView
+  sayfalarının `IServiceProvider` üzerinden çözümlenmesi için;
+  `DependencyInjectionNavigationViewPageProvider` sınıfını sağlıyor)
+
+`dotnet build`: 0 hata (yalnızca LiveCharts2'nin geçişli bağımlılıklarından
+gelen bilinen NU1701 uyarıları, yeni değil). `dotnet test`: 16/16.
+
 ## Devam eden iş
 
-- Yok. (Disk format/partition özelliğine bu turda kasıtlı olarak
-  girilmedi — kullanıcı ayrıca konuşulacağını belirtti.)
+- WPF-UI migrasyonu sürüyor (ADIM 2-5). Disk format/partition özelliğine
+  bu turda da kasıtlı olarak girilmiyor — kullanıcı ayrıca konuşulacağını
+  belirtti.
 
 ## Sıradaki işler (öncelik sırasına göre)
 
