@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.5" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
   </ItemGroup>
 
@@ -29,8 +30,7 @@
 
   <!-- smartctl.exe'yi çıktı ile birlikte tools/ altına kopyala (varsa) -->
   <ItemGroup>
-    <None Include="..\..\tools\**\*" Link="tools\%(RecursiveDir)%(Filename)%(Extension)"
-          CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tools')" />
+    <None Include="..\..\tools\**\*" Link="tools\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tools')" />
   </ItemGroup>
 
 </Project>

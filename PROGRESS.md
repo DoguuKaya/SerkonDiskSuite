@@ -210,10 +210,35 @@ başarılı. **Görsel doğrulama kullanıcı tarafından elle yapılmalı** —
 özellikle yeni ComboBox açılır listesinin (popup) doğru konumlandığı ve
 okunabilir olduğu gözle kontrol edilmeli.
 
+### 8. ÖZELLİK: Gerçek zamanlı sıcaklık grafiği (LiveCharts2) (TAMAMLANDI — 2026-08-04)
+
+`LiveChartsCore.SkiaSharpView.WPF` (2.0.5) paketi `SerkonDiskSuite.App`'e
+eklendi. `HealthViewModel` artık seçili disk için 5 saniyede bir SMART
+okuyup sıcaklığı `lvc:CartesianChart` üzerinde çiziyor (son 15 dakika,
+180 nokta penceresi). Arka plan döngüsü `CancellationTokenSource` ile
+iptal edilebilir; `HealthViewModel` artık `IDisposable` (uygulama
+kapanışında `App.xaml.cs`'teki `ServiceProvider.Dispose()` otomatik
+çağırıyor). Sekme görünürlüğü `MainWindow.xaml.cs`'te
+`HealthTabContent`'in `IsVisibleChanged` olayı + `Loaded` olayıyla
+(ilk açılış durumu için) izlenip `HealthViewModel.SetMonitoringActive`
+ile döngü başlatılıp durduruluyor — Sağlık sekmesinden çıkılınca
+gereksiz SMART okuması durur. Disk değişince grafik temizlenip yeni
+disk için yeniden başlıyor. Tek bir okuma hatası döngüyü öldürmüyor
+(bir sonraki periyotta tekrar denenir); `ChartSyncObject` kilidiyle
+arka plan iş parçacığından güvenli koleksiyon güncellemesi yapılıyor.
+
+**Doğrulama:** `dotnet build`: 0 hata (yalnızca LiveCharts2'nin geçişli
+bağımlılıklarından gelen 9 adet NU1701 "eski .NET Framework" uyumluluk
+uyarısı — kendi kodumuzdan değil, bilinen/zararsız bir paket meta veri
+uyarısı). `dotnet test`: 16/16 başarılı. **Görsel doğrulama kullanıcı
+tarafından elle yapılmalı** — grafiğin gerçekten çizildiği, sekme
+değişince döngünün durduğu ve SkiaSharp render'ının WPF içinde sorunsuz
+çalıştığı (GPU/donanım bağımlı olabilir) gözle kontrol edilmeli.
+
 ## Devam eden iş
 
-- (B) kalan özellikler sırayla ekleniyor: gerçek zamanlı sıcaklık
-  grafiği (LiveCharts2), SMART trend loglama.
+- (B) son kalan özellik: SMART trend loglama (JSON dosyasına yazma +
+  açılışta geçmişi yükleme).
 
 ## Sıradaki işler (öncelik sırasına göre)
 
