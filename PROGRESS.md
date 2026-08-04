@@ -191,10 +191,29 @@ donanımında `available_spare` alanının smartctl JSON çıktısında
 beklenen konumda geldiği varsayılıyor — bu ajan oturumunda canlı SMART
 verisiyle test edilemedi).
 
+### 7. ÖZELLİK: Benchmark IOPS gösterimi + blok boyutu seçimi (TAMAMLANDI — 2026-08-04)
+
+Sonuç kartlarında rastgele testler için IOPS değeri artık gösteriliyor
+(`BenchmarkResult.Iops` zaten hesaplanıyordu, UI'da eksikti). Kullanıcı
+artık rastgele testler için blok boyutunu (4/8/16/32/64/128/256/512/1024
+KiB) bir ComboBox'tan seçebiliyor (`BenchmarkViewModel.RandomBlockSizeKiB`
+-> `BenchmarkOptions.RandomBlockSize`). Sıralı testlerin blok boyutu
+değiştirilmedi (varsayılan 1 MiB'de sabit kaldı — kullanıcılar bunu
+nadiren değiştiriyor, YAGNI).
+
+**Yan iş:** `Theme.xaml`'e orijinal A listesinde olmayan ama bu adımda
+gerekli olan bir `ComboBox`/`ComboBoxItem` koyu tema stili eklendi
+(aksi halde yeni eklenen ComboBox aynı okunmazlık sorununu yaşardı).
+
+**Doğrulama:** `dotnet build`: 0 hata/uyarı. `dotnet test`: 16/16
+başarılı. **Görsel doğrulama kullanıcı tarafından elle yapılmalı** —
+özellikle yeni ComboBox açılır listesinin (popup) doğru konumlandığı ve
+okunabilir olduğu gözle kontrol edilmeli.
+
 ## Devam eden iş
 
-- (B) kalan özellikler sırayla ekleniyor: benchmark IOPS/blok boyutu,
-  gerçek zamanlı sıcaklık grafiği (LiveCharts2), SMART trend loglama.
+- (B) kalan özellikler sırayla ekleniyor: gerçek zamanlı sıcaklık
+  grafiği (LiveCharts2), SMART trend loglama.
 
 ## Sıradaki işler (öncelik sırasına göre)
 

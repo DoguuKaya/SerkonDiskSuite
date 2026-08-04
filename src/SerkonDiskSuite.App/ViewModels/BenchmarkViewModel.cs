@@ -22,6 +22,10 @@ public partial class BenchmarkViewModel : ObservableObject
     // Kullanıcı ayarları
     [ObservableProperty] private int _testSizeGiB = 1;
     [ObservableProperty] private int _passes = 3;
+    [ObservableProperty] private int _randomBlockSizeKiB = 4;
+
+    /// <summary>Rastgele okuma/yazma testlerinde seçilebilecek blok boyutları (KiB).</summary>
+    public IReadOnlyList<int> BlockSizeOptionsKiB { get; } = [4, 8, 16, 32, 64, 128, 256, 512, 1024];
 
     public BenchmarkViewModel(IBenchmarkRunner runner) => _runner = runner;
 
@@ -49,7 +53,8 @@ public partial class BenchmarkViewModel : ObservableObject
         {
             TargetPath = TargetDrive,
             TestFileSizeBytes = (long)TestSizeGiB * 1024 * 1024 * 1024,
-            Passes = Passes
+            Passes = Passes,
+            RandomBlockSize = RandomBlockSizeKiB * 1024
         };
 
         var progress = new Progress<BenchmarkProgress>(p =>
