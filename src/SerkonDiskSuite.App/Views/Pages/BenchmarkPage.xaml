@@ -25,7 +25,13 @@
 
             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8">
                 <TextBlock Text="Hedef sürücü: " VerticalAlignment="Center" />
-                <TextBlock Text="{Binding TargetDrive}" FontWeight="Bold" VerticalAlignment="Center" />
+                <ComboBox ItemsSource="{Binding AvailableDriveLetters}"
+                          SelectedItem="{Binding SelectedDriveLetter}"
+                          Width="70" VerticalAlignment="Center" />
+                <TextBlock Text="⚠ Sistem diski seçili — bu diski test etmek riskli olabilir!"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"
+                           Visibility="{Binding IsSystemDriveSelected, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
                 <TextBlock Text="   Boyut (GiB): " VerticalAlignment="Center" Margin="16,0,0,0" />
                 <TextBox Text="{Binding TestSizeGiB}" Width="50" VerticalAlignment="Center" />
                 <TextBlock Text="   Geçiş: " VerticalAlignment="Center" Margin="16,0,0,0" />

@@ -735,6 +735,43 @@ gözle kontrol edilmeli.
 `Views/Pages/BenchmarkPage.xaml`,
 `tests/SerkonDiskSuite.Tests/BenchmarkProfilesTests.cs` (yeni)
 
+### 22. ÖZELLİK: Benchmark hedef sürücü seçici + sistem diski uyarısı (TAMAMLANDI — 2026-08-04)
+
+Önceden `BenchmarkViewModel.SetDisk`, seçili diskin İLK sürücü harfini
+otomatik hedef olarak alıyordu (kullanıcı değiştiremiyordu) — sabit
+`C:\` test edilmesi riski buradan geliyordu (sistem diski seçiliyse
+kullanıcının haberi olmadan test edilebiliyordu).
+
+**Düzeltme:** `AvailableDriveLetters`/`SelectedDriveLetter` eklendi;
+`SetDisk` artık seçili diskin TÜM sürücü harflerini listeler (ilk harf
+varsayılan olarak seçilir, kullanıcı ComboBox'tan değiştirebilir).
+`OnSelectedDriveLetterChanged` her seçimde `TargetDrive`'ı günceller ve
+`IsSystemDriveSelected`'ı (`Path.GetPathRoot(Environment.SystemDirectory)`
+ile karşılaştırarak) hesaplar. `BenchmarkPage.xaml`'e sürücü seçici
+`ComboBox` + sistem diski seçiliyken görünen kırmızı uyarı metni eklendi
+("⚠ Sistem diski seçili — bu diski test etmek riskli olabilir!").
+
+Not: Uyarı sadece görsel/bilgilendirici; kullanıcı isterse sistem diskini
+yine de test edebilir (diski gerçekten kilitleme/format gibi yıkıcı bir
+engelleme eklenmedi — kullanıcı CLAUDE.md'de disk format/partition
+özelliğine bu turda kasıtlı girilmemesini istemişti, benzer şekilde
+"engelleme" değil "uyarı" istenmiş).
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 57/57
+başarılı (bu madde mantığı basit UI state yönetimi; ayrı birim testi
+istenmedi). Uygulama başlatılıp 8 saniye ayakta kaldığı doğrulandı
+(`Responding=True`).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — birden fazla
+bölümü olan bir diskte ComboBox'ın tüm harfleri listelediği, sistem
+diski (genelde C:) seçildiğinde uyarının göründüğü, başka bir harf
+seçilince uyarının kaybolduğu gözle kontrol edilmeli.
+
+**GRUP 2 (madde 6-8, benchmark motorunu CrystalDiskMark seviyesine
+çıkarma) bu maddeyle tamamlandı.**
+
+**Değişiklik:** `src/SerkonDiskSuite.App/ViewModels/BenchmarkViewModel.cs`,
+`Views/Pages/BenchmarkPage.xaml`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

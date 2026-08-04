@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SerkonDiskSuite.Core.Interfaces;
@@ -13,11 +14,18 @@ public partial class BenchmarkViewModel : ObservableObject
     private DiskInfo? _disk;
     private CancellationTokenSource? _cts;
 
+    /// <summary>Windows'un yüklü olduğu sürücü kökü (ör. "C:") — bu sürücü test için seçilirse uyarı gösterilir.</summary>
+    private static readonly string SystemDriveLetter =
+        (Path.GetPathRoot(Environment.SystemDirectory) ?? "C:\\").TrimEnd('\\');
+
     [ObservableProperty] private ObservableCollection<BenchmarkResult> _results = [];
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private double _progressPercent;
     [ObservableProperty] private string? _progressMessage;
     [ObservableProperty] private string? _targetDrive;
+    [ObservableProperty] private ObservableCollection<string> _availableDriveLetters = [];
+    [ObservableProperty] private string? _selectedDriveLetter;
+    [ObservableProperty] private bool _isSystemDriveSelected;
 
     // Kullanıcı ayarları
     [ObservableProperty] private int _testSizeGiB = 1;
@@ -38,8 +46,17 @@ public partial class BenchmarkViewModel : ObservableObject
     {
         _disk = disk;
         Results.Clear();
-        // Benchmark bir sürücü harfi gerektirir (ör. "S:\").
-        TargetDrive = disk?.DriveLetters.FirstOrDefault() is { } l ? $"{l}\\" : null;
+        AvailableDriveLetters = new ObservableCollection<string>(disk?.DriveLetters ?? []);
+        // Benchmark bir sürücü harfi gerektirir (ör. "S:\"); varsayılan olarak ilk harf seçilir,
+        // kullanıcı dilerse ComboBox'tan başka bir harf (aynı diskin diğer bölümü) seçebilir.
+        SelectedDriveLetter = AvailableDriveLetters.FirstOrDefault();
+    }
+
+    partial void OnSelectedDriveLetterChanged(string? value)
+    {
+        TargetDrive = value is { } l ? $"{l}\\" : null;
+        IsSystemDriveSelected = value is not null
+            && string.Equals(value.TrimEnd('\\'), SystemDriveLetter, StringComparison.OrdinalIgnoreCase);
     }
 
     private bool CanRun => !IsRunning && !string.IsNullOrEmpty(TargetDrive);
