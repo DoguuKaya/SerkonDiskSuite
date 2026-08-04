@@ -99,7 +99,7 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         bool isRandom = kind is BenchmarkTestKind.RandomRead or BenchmarkTestKind.RandomWrite;
         return new BenchmarkResult(
             kind, bestThroughput, isRandom ? bestIops : null, bestDuration,
-            options.QueueDepth, options.ThreadCount);
+            options.QueueDepth, options.ThreadCount, options.ProfileName);
     }
 
     /// <summary>

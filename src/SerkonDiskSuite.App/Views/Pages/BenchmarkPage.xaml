@@ -42,6 +42,11 @@
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
+                <TextBlock Text="   Profil: " VerticalAlignment="Center" Margin="16,0,0,0" />
+                <ComboBox ItemsSource="{Binding Profiles}"
+                          SelectedItem="{Binding SelectedProfile}"
+                          DisplayMemberPath="Name"
+                          Width="140" VerticalAlignment="Center" />
             </StackPanel>
 
             <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8">
@@ -62,8 +67,12 @@
                         <DataTemplate>
                             <ui:Card Margin="0,4">
                                 <Grid>
-                                    <TextBlock Text="{Binding Kind, Converter={StaticResource BenchmarkTestKindToString}}"
-                                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Kind, Converter={StaticResource BenchmarkTestKindToString}}"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding ProfileName, StringFormat=' ({0})'}"
+                                                   Style="{StaticResource Muted}" VerticalAlignment="Center" />
+                                    </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                         <TextBlock FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                    VerticalAlignment="Center" Margin="0,0,12,0"

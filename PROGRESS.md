@@ -692,6 +692,49 @@ edildi): motor gerçek dosyalarda hatasız çalışıyor, veri yarışı/çökme
 `tests/SerkonDiskSuite.Tests/SerkonDiskSuite.Tests.csproj`,
 `tests/SerkonDiskSuite.Tests/DiskBenchmarkRunnerTests.cs` (yeni)
 
+### 21. ÖZELLİK: Hazır CrystalDiskMark profilleri (TAMAMLANDI — 2026-08-04)
+
+`Core/Models/BenchmarkProfiles.cs` (yeni): `BenchmarkProfile` record'ı +
+CrystalDiskMark'ın NVMe varsayılan 4 profili (SEQ1M Q8T1, SEQ1M Q1T1,
+RND4K Q32T16, RND4K Q1T1) + `BenchmarkProfiles.Apply(options, profile)`
+(sıralı profil yalnızca `SequentialBlockSize`'ı, rastgele profil yalnızca
+`RandomBlockSize`'ı değiştirir; `QueueDepth`/`ThreadCount`/`ProfileName`
+her ikisinde de güncellenir — `BenchmarkOptions` artık `record` olduğundan
+`with` ile değişmez şekilde uygulanıyor, orijinal nesne mutasyona
+uğramıyor).
+
+`BenchmarkViewModel`'e `SelectedProfile`/`Profiles` eklendi;
+`BenchmarkPage.xaml`'e profil seçici `ComboBox` (profil seçilmezse
+mevcut manuel "Özel" ayarlar — boyut/geçiş/rastgele blok boyutu —
+kullanılır). Sonuç kartlarında artık test adının yanında profil adı
+parantez içinde gösteriliyor (ör. "Rastgele Okuma (RND4K Q32T16)").
+
+**Bilinen basitleştirme:** `QueueDepth`/`ThreadCount` hâlâ (madde 6'dan)
+TÜM dört test türüne birden uygulanan tek bir global ayar; gerçek
+CrystalDiskMark'ta sıralı ve rastgele testler ayrı Q/T taşıyabilir. Bir
+profil seçildiğinde o profilin Q/T'si dört testin HEPSİNE uygulanıyor
+(yalnızca blok boyutu kategoriye özel kalıyor). Bu, madde 6'nın motor
+mimarisiyle tutarlı kalmak için bilinçli bir kapsam kararı; gerekirse
+ileride `SequentialQueueDepth`/`RandomQueueDepth` ayrımına genişletilebilir.
+
+**Doğrulama:** Yeni `BenchmarkProfilesTests` (4 testin hepsi doğru
+sırada/isimde, `Apply`'ın sadece ilgili kategoriyi değiştirdiği,
+orijinal `options`'ın mutasyona uğramadığı). `dotnet build`: 0 hata/0
+uyarı. `dotnet test`: **57/57 başarılı** (53 eski + 4 yeni). Uygulama
+başlatılıp 8 saniye ayakta kaldığı doğrulandı (`Responding=True`).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — profil
+ComboBox'ının doğru göründüğü, bir profil seçilip test çalıştırıldığında
+sonuç kartlarında doğru profil adının ve gerçekten değişen throughput/IOPS
+değerlerinin (özellikle RND4K Q32T16 ile Q1T1 arasındaki farkın) göründüğü
+gözle kontrol edilmeli.
+
+**Değişiklik:** `src/SerkonDiskSuite.Core/Models/BenchmarkProfiles.cs`
+(yeni), `BenchmarkModels.cs` (ProfileName alanı, `class` -> `record`),
+`src/SerkonDiskSuite.Infrastructure/Benchmark/DiskBenchmarkRunner.cs`,
+`src/SerkonDiskSuite.App/ViewModels/BenchmarkViewModel.cs`,
+`Views/Pages/BenchmarkPage.xaml`,
+`tests/SerkonDiskSuite.Tests/BenchmarkProfilesTests.cs` (yeni)
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

@@ -1,7 +1,7 @@
 namespace SerkonDiskSuite.Core.Models;
 
 /// <summary>Benchmark test parametreleri.</summary>
-public sealed class BenchmarkOptions
+public sealed record BenchmarkOptions
 {
     /// <summary>Testin çalışacağı sürücü kökü (ör. "S:\").</summary>
     public required string TargetPath { get; init; }
@@ -29,6 +29,12 @@ public sealed class BenchmarkOptions
     /// "T" değeriyle eşdeğerdir. Varsayılan 1 (T1, eski davranış).
     /// </summary>
     public int ThreadCount { get; init; } = 1;
+
+    /// <summary>
+    /// Uygulanan hazır profilin adı (ör. "SEQ1M Q8T1"); kullanıcı manuel değer girdiyse
+    /// "Özel". Sonuç satırlarında hangi profille üretildiğini göstermek için taşınır.
+    /// </summary>
+    public string ProfileName { get; init; } = "Özel";
 }
 
 /// <summary>Tek bir testin sonucu.</summary>
@@ -38,7 +44,8 @@ public sealed record BenchmarkResult(
     double? Iops,
     TimeSpan Duration,
     int QueueDepth = 1,
-    int ThreadCount = 1);
+    int ThreadCount = 1,
+    string ProfileName = "Özel");
 
 public enum BenchmarkTestKind
 {
