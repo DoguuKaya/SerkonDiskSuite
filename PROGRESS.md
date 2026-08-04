@@ -381,6 +381,65 @@ ilerleme yüzdesi eklendi), LiveCharts2 sıcaklık grafiği + trend loglama
 döngüsüne — `INavigationAware` — bağlandı, bellek sızıntısı riski
 azaltıldı).
 
+### 14. BUG: WPF-UI migrasyonu sonrası açılışta sessiz çöküş (ÇÖZÜLDÜ — 2026-08-04)
+
+**Kök neden:** `MainWindow` yapıcısında `InitializeComponent()`'ten hemen
+sonra `RootNavigation.Navigate(typeof(HealthPage), null)` çağrılıyordu.
+Bu noktada `ui:NavigationView` henüz kendi `ControlTemplate`'ini
+uygulamamış olduğundan (WPF şablon uygulaması yalnızca pencere `Loaded`
+olduğunda/layout geçişi sırasında gerçekleşir), `NavigationView`'ın iç
+`ContentPresenter`'ı hâlâ `null`'dı. `Navigate` → `NavigateInternal` →
+`UpdateContent` bu null referansa `NullReferenceException` fırlatıyor,
+istisna hiçbir yerde yakalanmadığından uygulama pencere hiç görünmeden
+sessizce kapanıyordu.
+
+Aynı istisna türü (`NullReferenceException`
+`Wpf.Ui.Controls.NavigationView.UpdateContent`) WPF-UI 4.3.0'da bilinen
+bir "Navigate çağrısı çok erken" hatası; şablon henüz yokken içerik
+sunan kontrolde çağrılan `Navigate`, `Loaded` sonrasına ertelenmelidir.
+
+**Düzeltme:** `Views/MainWindow.xaml.cs` — `SetServiceProvider` +
+`Navigate` çağrıları yapıcıdan çıkarılıp pencerenin `Loaded` olayına
+taşındı (`OnLoaded` metodu). `Loaded` birden fazla kez tetiklenebileceği
+için `_isInitialized` bayrağıyla navigasyon kurulumu tek seferlik hale
+getirildi; `SetServiceProvider` her durumda `Navigate`'ten önce
+çağrılıyor. Diskleri tarayan `LoadCommand` çağrısı da aynı tek seferlik
+`OnLoaded` içine taşındı (önceki ayrı `Loaded` lambda'sıyla aynı
+davranış, artık tek bir yerde).
+
+**Ayrıca bu turda:**
+- `App.xaml.cs`'e global istisna yakalayıcılar eklendi:
+  `DispatcherUnhandledException`, `AppDomain.CurrentDomain.UnhandledException`,
+  `TaskScheduler.UnobservedTaskException`. Her biri istisnayı
+  `%LOCALAPPDATA%\SerkonDiskSuite\logs\crash-{yyyyMMdd-HHmmss-fff}.log`
+  dosyasına (zaman damgası + kaynak + tam `Exception.ToString()`) yazıp
+  kullanıcıya `MessageBox` ile anlaşılır bir hata penceresi gösteriyor;
+  loglama başarısız olsa bile pencere yine de gösteriliyor. Böylece bu
+  sınıf hatalar bir daha sessizce çökmeyecek — en azından kullanıcıya
+  görünür olacak ve log dosyasına kaydedilecek.
+- `SerkonDiskSuite.App.csproj`'a `<NoWarn>$(NoWarn);NU1701</NoWarn>`
+  eklendi — LiveCharts2'nin geçişli bağımlılıklarından (SkiaSharp/OpenTK)
+  gelen bilinen/zararsız uyarı yığını artık derleme çıktısını kirletmiyor,
+  gerçek uyarılar/hatalar daha görünür.
+
+**Doğrulama:**
+- `dotnet build` (tüm çözüm): 0 hata, **0 uyarı** (NU1701'ler dahil hiç
+  uyarı yok — önceki turlarda 6-9 adet NU1701 vardı).
+- `dotnet test`: 38/38 başarılı.
+- Uygulama gerçekten başlatıldı (`Start-Process` ile) ve 8 saniye
+  ayakta kaldığı doğrulandı: `Get-Process SerkonDiskSuite` süreci canlı
+  buldu, `MainWindowTitle="Serkon Disk Suite"`, `Responding=True`.
+  Önceki (düzeltme öncesi) davranışta süreç pencere hiç görünmeden
+  hemen kapanıyordu. `%LOCALAPPDATA%\SerkonDiskSuite\logs\` altında
+  crash log dosyası oluşmadı — yani hiçbir yakalanmamış istisna
+  tetiklenmedi. Süreç yönetici hakkıyla çalıştığından bu ajan oturumunun
+  yükseltilmemiş kabuğundan kapatılamadı (bilinen kısıt, bkz. Notlar);
+  kullanıcının pencereyi elle kapatması gerekiyor.
+
+**Değişiklik:** `src/SerkonDiskSuite.App/Views/MainWindow.xaml.cs`,
+`src/SerkonDiskSuite.App/App.xaml.cs`,
+`src/SerkonDiskSuite.App/SerkonDiskSuite.App.csproj`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

@@ -9,6 +9,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>SerkonDiskSuite</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
 
     <!-- Tek dosya, kendi kendine yeten yayın için (dotnet publish) -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
