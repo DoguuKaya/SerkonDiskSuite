@@ -351,30 +351,68 @@ bırakılması.
 **Doğrulama:** `dotnet build`: 0 hata. `dotnet test`: **38/38 başarılı**
 (16 eski + 22 yeni).
 
+### 13. ADIM 4/5 kalanı — Benchmark gerçek ilerleme yüzdesi (TAMAMLANDI — 2026-08-04)
+
+`DiskBenchmarkRunner`, her geçişin (pass) I/O döngüsü içinde periyodik
+olarak (~50 bildirim/geçiş, `totalBlocks/50` blokta bir) ilerleme
+raporluyor. Genel yüzde artık gerçek: `(testIndex*Passes + (pass-1) +
+geçiş-içi-oran) / (toplamTestSayısı*Passes) * 100` — yani 4 test türü x
+N geçişin tamamı üzerinden hesaplanan gerçek bir toplam, sabit "0" değil.
+`BenchmarkViewModel.StartAsync`'teki `Progress<BenchmarkProgress>`
+callback'i artık `ProgressPercent`'i de güncelliyor (önceden yalnızca
+mesaj güncelleniyordu, yüzde hep 0'da kalıyordu).
+`BenchmarkPage.xaml`'deki `ProgressBar` artık `IsIndeterminate` değil,
+doğrudan `Value="{Binding ProgressPercent}"` ile gerçek yüzdeyi
+gösteriyor.
+
+**Doğrulama:** `dotnet build`: 0 hata. `dotnet test`: 38/38 başarılı.
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — gerçek bir
+benchmark çalıştırılıp ilerleme çubuğunun düzgün ilerlediği (donmadığı,
+geriye gitmediği) gözle kontrol edilmeli.
+
+## WPF-UI migrasyonu tamamlandı (ADIM 1-5)
+
+Bu turda istenen 5 adımın tamamı bitti: WPF-UI kurulumu, FluentWindow/
+TitleBar/NavigationView'a geçiş, SMART etiket/format mantığının Core'a
+taşınması + testler, eksik özelliklerin tamamlanması (disk detay/sağlık
+kartları/IOPS/blok boyutu zaten önceki oturumdan vardı, bu turda gerçek
+ilerleme yüzdesi eklendi), LiveCharts2 sıcaklık grafiği + trend loglama
+(önceki oturumdan vardı, bu turda NavigationView'ın sayfa yaşam
+döngüsüne — `INavigationAware` — bağlandı, bellek sızıntısı riski
+azaltıldı).
+
 ## Devam eden iş
 
-- WPF-UI migrasyonu sürüyor (ADIM 5 kalanı: benchmark gerçek ilerleme
-  yüzdesi). Disk format/partition özelliğine bu turda da kasıtlı olarak
-  girilmiyor — kullanıcı ayrıca konuşulacağını belirtti.
+- Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak
+  girilmedi — kullanıcı ayrıca konuşulacağını belirtti.
 
 ## Sıradaki işler (öncelik sırasına göre)
 
 1. **Kullanıcı elle kontrol etmeli (bu ajan oturumunda WPF render'ı
-   görülemiyor):**
-   - Theme.xaml: DataGrid okunabilirliği (satır/hücre metni, seçim ve
-     hover renkleri, alternating row), TabItem geçişleri (seçili/hover/
-     normal), ScrollBar görünümü, TextBox odak rengi, yeni ComboBox'ın
-     (blok boyutu seçici) açılır listesinin doğru konumlanması.
-   - Disk detay şeridi, sağlık özet kartları (3x3 grid) ve benchmark
-     IOPS/blok boyutu alanlarının gerçek SMART/benchmark verisiyle
-     doğru dolduğu (yönetici olarak çalıştırıp kontrol edilmeli — UAC).
-   - Sıcaklık grafiğinin gerçekten çizildiği, sekme değiştirilince arka
-     plan izleme döngüsünün durduğu (ör. Görev Yöneticisi'nde smartctl
-     alt sürecinin sekmeden çıkınca tetiklenmediğini gözlemleyerek).
+   görülemiyor — yönetici olarak çalıştırıp UAC geçilmesi gerekiyor):**
+   - `ui:FluentWindow`'un Mica arka planı + yuvarlak köşelerinin
+     gerçekten uygulandığı (bazı Windows sürümlerinde/uzak masaüstünde
+     Mica devre dışı kalabilir, bu durumda WPF-UI'nin düz renk yedeğine
+     düşmesi beklenir — bu bir hata değildir).
+   - `ui:NavigationView`'ın üstte (Top) sekme gibi göründüğü, üç sayfa
+     (Sağlık/Benchmark/Sistem) arasında geçişin çalıştığı, simgelerin
+     (`Heart24`/`DataHistogram24`/`Desktop24`) doğru render edildiği.
+   - DataGrid okunabilirliği (satır/hücre metni, seçim ve hover renkleri,
+     alternating row) — bu stiller WPF-UI'de yok, kendi özel stilimiz
+     hâlâ geçerli.
+   - Disk detay şeridi, sağlık özet kartları (3x3 `ui:Card` grid) ve
+     benchmark IOPS/blok boyutu alanlarının gerçek SMART/benchmark
+     verisiyle doğru dolduğu.
+   - Sıcaklık grafiğinin gerçekten çizildiği; Sağlık sayfasından başka
+     bir sayfaya geçilince izleme döngüsünün durduğu (`INavigationAware`
+     üzerinden — ör. Görev Yöneticisi'nde smartctl alt sürecinin sayfadan
+     çıkınca tetiklenmediğini gözlemleyerek).
    - Uygulamayı kapatıp yeniden açtığınızda sıcaklık grafiğinin önceki
      oturumdan kalan (son 15 dakikaya düşen) noktalarla başladığı ve
      `%LOCALAPPDATA%\SerkonDiskSuite\trend\` altında JSON dosyalarının
      oluştuğu.
+   - Benchmark ilerleme çubuğunun artık gerçek yüzdeyle (donmadan,
+     geriye gitmeden) ilerlediği.
 2. Firmware güncelleme uyarısı, çoklu dil desteği (ileri aşama fikirleri
    — henüz başlanmadı).
 3. Disk format/partition özelliği — kullanıcıyla ayrıca konuşulacak,
@@ -382,9 +420,9 @@ bırakılması.
 
 ## Bilinen buglar
 
-- Yok (aktif olarak bilinen başka bug yok; SMART/Benchmark sekmeleri ve
-  yeni arayüz/grafik/trend loglama özellikleri henüz gerçek donanımda
-  gözle uçtan uca doğrulanmadı — bkz. yukarıdaki manuel kontrol listesi).
+- Yok (aktif olarak bilinen başka bug yok; WPF-UI migrasyonu ve ilgili
+  tüm özellikler henüz gerçek donanımda gözle uçtan uca doğrulanmadı —
+  bkz. yukarıdaki manuel kontrol listesi).
 
 ## Notlar
 

@@ -43,7 +43,6 @@
             </StackPanel>
 
             <ProgressBar Margin="0,8" Minimum="0" Maximum="100"
-                         IsIndeterminate="{Binding IsRunning}"
                          Value="{Binding ProgressPercent, Mode=OneWay}" />
             <TextBlock Text="{Binding ProgressMessage}" Style="{StaticResource Muted}" />
 

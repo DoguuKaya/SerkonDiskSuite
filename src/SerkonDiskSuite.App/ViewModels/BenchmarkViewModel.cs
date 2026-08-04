@@ -60,6 +60,7 @@ public partial class BenchmarkViewModel : ObservableObject
         var progress = new Progress<BenchmarkProgress>(p =>
         {
             ProgressMessage = p.StatusMessage;
+            ProgressPercent = p.PercentComplete;
         });
 
         try

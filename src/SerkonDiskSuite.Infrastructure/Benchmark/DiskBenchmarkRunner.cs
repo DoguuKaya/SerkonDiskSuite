@@ -21,6 +21,14 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
     // 0x20000000 = FILE_FLAG_NO_BUFFERING (FileOptions'ta doğrudan yok, ekliyoruz).
     private const FileOptions NoBuffering = (FileOptions)0x20000000;
 
+    private static readonly BenchmarkTestKind[] TestKinds =
+    [
+        BenchmarkTestKind.SequentialWrite,
+        BenchmarkTestKind.SequentialRead,
+        BenchmarkTestKind.RandomWrite,
+        BenchmarkTestKind.RandomRead
+    ];
+
     public async Task<IReadOnlyList<BenchmarkResult>> RunAsync(
         BenchmarkOptions options,
         IProgress<BenchmarkProgress>? progress = null,
@@ -32,10 +40,11 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         try
         {
             // Testler sırayla; her biri "Passes" kez çalışır, en iyi sonuç alınır.
-            results.Add(await MeasureBestAsync(BenchmarkTestKind.SequentialWrite, tempFile, options, progress, ct));
-            results.Add(await MeasureBestAsync(BenchmarkTestKind.SequentialRead, tempFile, options, progress, ct));
-            results.Add(await MeasureBestAsync(BenchmarkTestKind.RandomWrite, tempFile, options, progress, ct));
-            results.Add(await MeasureBestAsync(BenchmarkTestKind.RandomRead, tempFile, options, progress, ct));
+            for (int testIndex = 0; testIndex < TestKinds.Length; testIndex++)
+            {
+                results.Add(await MeasureBestAsync(
+                    TestKinds[testIndex], testIndex, TestKinds.Length, tempFile, options, progress, ct));
+            }
         }
         finally
         {
@@ -47,6 +56,8 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
 
     private async Task<BenchmarkResult> MeasureBestAsync(
         BenchmarkTestKind kind,
+        int testIndex,
+        int totalTests,
         string filePath,
         BenchmarkOptions options,
         IProgress<BenchmarkProgress>? progress,
@@ -55,18 +66,26 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         double bestThroughput = 0;
         double bestIops = 0;
         var bestDuration = TimeSpan.MaxValue;
+        double totalSteps = totalTests * options.Passes;
 
         for (int pass = 1; pass <= options.Passes; pass++)
         {
             ct.ThrowIfCancellationRequested();
 
-            progress?.Report(new BenchmarkProgress(
-                kind, pass, options.Passes,
-                PercentComplete: 0,
-                StatusMessage: $"{kind} çalışıyor (geçiş {pass}/{options.Passes})..."));
+            int passNumber = pass;
+            void ReportProgress(double withinPassFraction)
+            {
+                double completedSteps = testIndex * options.Passes + (passNumber - 1) + withinPassFraction;
+                double percent = Math.Clamp(completedSteps / totalSteps * 100.0, 0, 100);
+                progress?.Report(new BenchmarkProgress(
+                    kind, passNumber, options.Passes, percent,
+                    $"{kind} çalışıyor (geçiş {passNumber}/{options.Passes})..."));
+            }
+
+            ReportProgress(0);
 
             var (throughput, iops, duration) = await Task.Run(
-                () => RunSinglePass(kind, filePath, options, ct), ct);
+                () => RunSinglePass(kind, filePath, options, ct, ReportProgress), ct);
 
             if (throughput > bestThroughput)
             {
@@ -84,7 +103,8 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         BenchmarkTestKind kind,
         string filePath,
         BenchmarkOptions options,
-        CancellationToken ct)
+        CancellationToken ct,
+        Action<double>? onProgress)
     {
         bool isWrite = kind is BenchmarkTestKind.SequentialWrite or BenchmarkTestKind.RandomWrite;
         bool isRandom = kind is BenchmarkTestKind.RandomRead or BenchmarkTestKind.RandomWrite;
@@ -117,6 +137,9 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         var sw = Stopwatch.StartNew();
         long bytesProcessed = 0;
 
+        // Geçiş başına ~50 ilerleme bildirimi yeterli; her bloğu bildirmek gereksiz UI güncellemesine yol açar.
+        int reportEvery = Math.Max(1, totalBlocks / 50);
+
         for (int i = 0; i < totalBlocks; i++)
         {
             ct.ThrowIfCancellationRequested();
@@ -131,6 +154,9 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
                 RandomAccess.Read(handle, buffer, offset);
 
             bytesProcessed += blockSize;
+
+            if (onProgress is not null && (i % reportEvery == 0 || i == totalBlocks - 1))
+                onProgress((double)(i + 1) / totalBlocks);
         }
 
         sw.Stop();
