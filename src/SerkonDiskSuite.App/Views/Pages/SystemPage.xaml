@@ -28,6 +28,10 @@
                     <Run Text="{Binding CpuName, Mode=OneWay}" />
                 </TextBlock>
                 <TextBlock Margin="0,4">
+                    <Run Text="RAM: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <Run Text="{Binding TotalMemoryBytes, Converter={StaticResource BytesToString}, Mode=OneWay}" />
+                </TextBlock>
+                <TextBlock Margin="0,4">
                     <Run Text="Anakart: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                     <Run Text="{Binding MotherboardName, Mode=OneWay}" />
                 </TextBlock>

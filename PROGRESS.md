@@ -772,6 +772,23 @@ seçilince uyarının kaybolduğu gözle kontrol edilmeli.
 **Değişiklik:** `src/SerkonDiskSuite.App/ViewModels/BenchmarkViewModel.cs`,
 `Views/Pages/BenchmarkPage.xaml`
 
+### 23. ÖZELLİK: Sistem sayfasına RAM bilgisi eklendi (TAMAMLANDI — 2026-08-04)
+
+`SystemSummary.TotalMemoryBytes` zaten `WmiSystemInfoProvider` tarafından
+dolduruluyordu ama `SystemPage.xaml`'de hiç gösterilmiyordu.
+İşlemci ile Anakart satırları arasına, mevcut `BytesToString`
+converter'ıyla (tr-TR) biçimlendirilen bir "RAM: " satırı eklendi.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 57/57
+başarılı (yeni test istenmedi — tek satır XAML bağlaması, mevcut
+converter zaten test edilmiş). Canlı çalıştırma testi bu madde için
+gerekli görülmedi (tempo kararı).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — Sistem
+sayfasında RAM miktarının doğru (tr-TR, ör. "15,92 GB") göründüğü gözle
+kontrol edilmeli.
+
+**Değişiklik:** `src/SerkonDiskSuite.App/Views/Pages/SystemPage.xaml`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak
