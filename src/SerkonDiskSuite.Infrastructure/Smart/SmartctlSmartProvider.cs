@@ -89,6 +89,54 @@ public sealed class SmartctlSmartProvider : ISmartProvider
         };
     }
 
+    public async Task StartSelfTestAsync(DiskInfo disk, SelfTestType type, CancellationToken ct = default)
+    {
+        string testArg = type == SelfTestType.Long ? "long" : "short";
+        var (exitCode, _, stderr) = await RunAsync(["-t", testArg, disk.DevicePath], ct);
+
+        if ((exitCode & 0x02) != 0)
+            throw new InvalidOperationException(
+                $"smartctl self-test başlatamadı ({disk.DevicePath}). Yönetici olarak çalıştırdığınızdan emin olun. {stderr}");
+    }
+
+    public async Task<SelfTestStatus> GetSelfTestStatusAsync(DiskInfo disk, CancellationToken ct = default)
+    {
+        var (exitCode, stdout, stderr) = await RunAsync(["-a", "--json=c", disk.DevicePath], ct);
+
+        if ((exitCode & 0x02) != 0)
+            throw new InvalidOperationException(
+                $"smartctl diski açamadı ({disk.DevicePath}). {stderr}");
+
+        using var doc = JsonDocument.Parse(stdout);
+        return ParseSelfTestStatus(doc.RootElement);
+    }
+
+    /// <summary>
+    /// smartctl'in `ata_smart_data.self_test.status` alanını (value/string/remaining_percent)
+    /// ayrıştırır. Yalnızca ATA/SATA disklerde bu alan var; NVMe'de smartctl sürümüne göre
+    /// farklı/eksik olabileceğinden bulunamazsa güvenle "bilgi yok" (hepsi null/false) döner
+    /// — tahmini bir NVMe alan adı kullanılmıyor.
+    /// </summary>
+    public static SelfTestStatus ParseSelfTestStatus(JsonElement root)
+    {
+        if (!root.TryGetProperty("ata_smart_data", out var data)
+            || !data.TryGetProperty("self_test", out var selfTest)
+            || !selfTest.TryGetProperty("status", out var status))
+        {
+            return new SelfTestStatus(IsRunning: false, PercentRemaining: null, StatusDescription: null, Passed: null);
+        }
+
+        string? description = status.TryGetProperty("string", out var s) ? s.GetString() : null;
+        int? remaining = status.TryGetProperty("remaining_percent", out var r) ? r.GetInt32() : null;
+        bool isRunning = remaining is not null
+            || (description?.Contains("in progress", StringComparison.OrdinalIgnoreCase) ?? false);
+        bool? passed = !isRunning && description is not null
+            ? description.Contains("without error", StringComparison.OrdinalIgnoreCase)
+            : null;
+
+        return new SelfTestStatus(isRunning, remaining, description, passed);
+    }
+
     // ---- JSON ayrıştırma yardımcıları (smartctl şeması) ----
 
     private static int? TryGetTemperature(JsonElement root)

@@ -15,6 +15,13 @@ public interface ISmartProvider
 
     /// <summary>Alt araç (smartctl) sistemde kullanılabilir mi?</summary>
     Task<bool> IsAvailableAsync(CancellationToken ct = default);
+
+    /// <summary>Kısa veya uzun bir SMART self-test başlatır. smartctl testi diskin kendi
+    /// donanımında arka planda kuyruğa alır; bu çağrı test bitene kadar beklemez.</summary>
+    Task StartSelfTestAsync(DiskInfo disk, SelfTestType type, CancellationToken ct = default);
+
+    /// <summary>Devam eden veya son biten SMART self-test'in durumunu okur.</summary>
+    Task<SelfTestStatus> GetSelfTestStatusAsync(DiskInfo disk, CancellationToken ct = default);
 }
 
 /// <summary>Disk okuma/yazma benchmark testlerini yürütür.</summary>

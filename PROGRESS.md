@@ -789,6 +789,44 @@ kontrol edilmeli.
 
 **Değişiklik:** `src/SerkonDiskSuite.App/Views/Pages/SystemPage.xaml`
 
+### 24. ÖZELLİK: SMART self-test desteği (backend) (TAMAMLANDI — 2026-08-04)
+
+`ISmartProvider`'a iki yeni metot: `StartSelfTestAsync(disk, SelfTestType,
+ct)` (`smartctl -t short|long <device>`) ve `GetSelfTestStatusAsync(disk,
+ct)` (mevcut `-a --json=c` çıktısındaki `ata_smart_data.self_test.status`
+alanını ayrıştırır — ayrı bir `-l selftest` çağrısına gerek yok, zaten
+`-a` çıktısında bulunuyor). `SelfTestType` (Short/Long) ve `SelfTestStatus`
+(IsRunning, PercentRemaining, StatusDescription, Passed) modelleri Core'a
+eklendi.
+
+**Bu madde yalnızca backend (Core+Infrastructure).** Bu yeteneği
+kullanacak arayüz madde 11'de ("Teşhis" sayfası) eklenecek — bilinçli
+sıralama, iki madde birbirini tamamlıyor.
+
+**NVMe notu:** smartctl'in NVMe self-test JSON alan adları güvenilir bir
+şekilde doğrulanamadı (dokümantasyon taraması net sonuç vermedi, gerçek
+donanımda test edilemedi). Tahmini bir alan adı kullanmak yerine,
+`ata_smart_data.self_test.status` bulunamazsa (NVMe'de bu alan yok)
+fonksiyon güvenle "bilgi yok" (`IsRunning=false`, diğerleri `null`) döner
+— yanlış bilgi üretmek yerine dürüstçe boş döner. NVMe self-test'i
+gerçek donanımda doğrulanıp ileride eklenebilir.
+
+**Doğrulama:** `SmartctlSelfTestParsingTests` — smartctl'in belgelenen
+JSON şemasına (`value`/`string`/`remaining_percent`) uygun 4 sabit JSON
+örneğiyle (devam ediyor/tamamlandı-hatasız/kesintiye uğradı/alan yok)
+`ParseSelfTestStatus`'u gerçek donanım veya smartctl çalıştırmadan
+doğruluyor — **gerçek bir self-test bu ajan oturumunda KASITLI OLARAK
+tetiklenmedi** (uzun test gerçek donanımda saatler sürebilir, kullanıcının
+diskini test etmeye zorlamak riskli olur; bu yalnızca kullanıcının UI'dan
+(madde 11) kendi isteğiyle tetikleyeceği bir işlem). `dotnet build`: 0
+hata/0 uyarı. `dotnet test`: **61/61 başarılı** (57 eski + 4 yeni).
+Uygulama başlatılıp 8 saniye ayakta kaldığı doğrulandı (`Responding=True`).
+
+**Değişiklik:** `src/SerkonDiskSuite.Core/Models/SelfTestModels.cs` (yeni),
+`src/SerkonDiskSuite.Core/Interfaces/Providers.cs`,
+`src/SerkonDiskSuite.Infrastructure/Smart/SmartctlSmartProvider.cs`,
+`tests/SerkonDiskSuite.Tests/SmartctlSelfTestParsingTests.cs` (yeni)
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak
