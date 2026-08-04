@@ -21,6 +21,7 @@
             <conv:HoursToStringConverter x:Key="HoursToString" />
             <conv:CountToStringConverter x:Key="CountToString" />
             <conv:NumberToStringConverter x:Key="NumberToString" />
+            <conv:BenchmarkTestKindToStringConverter x:Key="BenchmarkTestKindToString" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

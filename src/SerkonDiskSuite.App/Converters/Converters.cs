@@ -109,6 +109,16 @@ public sealed class CountToStringConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>BenchmarkTestKind (enum) -> Türkçe görünen ad (ör. "Sıralı Yazma").</summary>
+public sealed class BenchmarkTestKindToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is BenchmarkTestKind kind ? BenchmarkTestKindLabels.ToTurkish(kind) : "-";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>
 /// Ondalıklı sayı (double/double?) -> tr-TR binlik ayraçlı dizge (ör. "25.806").
 /// XAML `StringFormat=N0` her zaman en-US kültürüne düştüğü için (ör. yanlışlıkla

@@ -62,7 +62,8 @@
                         <DataTemplate>
                             <ui:Card Margin="0,4">
                                 <Grid>
-                                    <TextBlock Text="{Binding Kind}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Kind, Converter={StaticResource BenchmarkTestKindToString}}"
+                                               FontWeight="SemiBold" VerticalAlignment="Center" />
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                         <TextBlock FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                    VerticalAlignment="Center" Margin="0,0,12,0"

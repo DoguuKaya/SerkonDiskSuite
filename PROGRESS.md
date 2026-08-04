@@ -567,6 +567,34 @@ sarmalandığı ihtimali araştırılmalı.
 `Views/MainWindow.xaml.cs`, `Resources/Theme.xaml`,
 `Views/Pages/BenchmarkPage.xaml`, `Views/Pages/SystemPage.xaml`
 
+### 18. ÖZELLİK: Benchmark test adları Türkçeleştirildi (TAMAMLANDI — 2026-08-04)
+
+`BenchmarkTestKind` enum'ı değiştirilmedi; `Core/Formatting/
+BenchmarkTestKindLabels.ToTurkish` eşlemesi eklendi (SequentialRead ->
+"Sıralı Okuma", SequentialWrite -> "Sıralı Yazma", RandomRead -> "Rastgele
+Okuma", RandomWrite -> "Rastgele Yazma"). `App/Converters` içinde
+`BenchmarkTestKindToStringConverter` eklendi, `BenchmarkPage.xaml`'deki
+sonuç kartı başlığı bunu kullanıyor. Ayrıca `DiskBenchmarkRunner`'daki
+ilerleme mesajı (`"{kind} çalışıyor..."`) da aynı eşlemeyi kullanacak
+şekilde güncellendi — bu mesaj `BenchmarkViewModel.ProgressMessage` ve
+alt durum çubuğu üzerinden kullanıcıya görünüyordu, ham İngilizce enum
+adını (ör. "SequentialWrite çalışıyor...") sızdırıyordu.
+
+**Doğrulama:** 4 yeni birim testi (`BenchmarkTestKindLabelsTests`, her enum
+değeri için). `dotnet build`: 0 hata/0 uyarı. `dotnet test`: **48/48
+başarılı** (44 eski + 4 yeni). Canlı çalıştırma testi bu madde için
+gerekli görülmedi (kullanıcıyla konuşulan tempo kararı — mantık/metin
+ağırlıklı, çöküş riski düşük).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — sonuç
+kartlarında ve ilerleme mesajında Türkçe adların gerçekten göründüğü
+gözle kontrol edilmeli.
+
+**Değişiklik:** `src/SerkonDiskSuite.Core/Formatting/BenchmarkTestKindLabels.cs`
+(yeni), `src/SerkonDiskSuite.App/Converters/Converters.cs`, `App.xaml`,
+`Views/Pages/BenchmarkPage.xaml`,
+`src/SerkonDiskSuite.Infrastructure/Benchmark/DiskBenchmarkRunner.cs`,
+`tests/SerkonDiskSuite.Tests/BenchmarkTestKindLabelsTests.cs` (yeni)
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

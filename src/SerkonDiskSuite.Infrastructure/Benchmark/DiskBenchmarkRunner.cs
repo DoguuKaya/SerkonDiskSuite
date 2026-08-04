@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Win32.SafeHandles;
+using SerkonDiskSuite.Core.Formatting;
 using SerkonDiskSuite.Core.Interfaces;
 using SerkonDiskSuite.Core.Models;
 
@@ -79,7 +80,7 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
                 double percent = Math.Clamp(completedSteps / totalSteps * 100.0, 0, 100);
                 progress?.Report(new BenchmarkProgress(
                     kind, passNumber, options.Passes, percent,
-                    $"{kind} çalışıyor (geçiş {passNumber}/{options.Passes})..."));
+                    $"{BenchmarkTestKindLabels.ToTurkish(kind)} çalışıyor (geçiş {passNumber}/{options.Passes})..."));
             }
 
             ReportProgress(0);
