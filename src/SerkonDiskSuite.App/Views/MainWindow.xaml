@@ -8,7 +8,9 @@
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica"
                  WindowCornerPreference="Round"
-                 WindowStartupLocation="CenterScreen">
+                 WindowStartupLocation="CenterScreen"
+                 HorizontalContentAlignment="Stretch"
+                 VerticalContentAlignment="Stretch">
 
     <Grid>
         <Grid.RowDefinitions>

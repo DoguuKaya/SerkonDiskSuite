@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
     <!--
         Bu dosya artık yalnızca WPF-UI'nin (ui:ThemesDictionary + ui:ControlsDictionary,
@@ -53,6 +54,23 @@
         <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!--
+        ui:NavigationView, sayfaları kendi iç Frame türevi olan
+        NavigationViewContentPresenter üzerinden gösterir. Bu presenter
+        varsayılan olarak (IsDynamicScrollViewerEnabled=true) içeriği sonsuz
+        yükseklik veren bir ScrollViewer'a sarar; bu yüzden Grid'deki "*"
+        satırları doğal (Auto) boyutuna küçülüyor ve tüm sayfa NavigationView
+        içinde dikeyde ORTALANIYOR (üstte ve altta büyük boş alan).
+        IsDynamicScrollViewerEnabled'ın CLR set erişeni `protected` olduğundan
+        (MC3080) burada Setter ile ayarlanamıyor; bu yüzden kapatılması
+        MainWindow.xaml.cs'te SetValue ile yapılıyor. Burada sadece Stretch
+        hizalaması (public setter'ları var) ayarlanıyor.
+    -->
+    <Style TargetType="{x:Type ui:NavigationViewContentPresenter}">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
     </Style>
 
     <!-- ================= DataGrid ================= -->

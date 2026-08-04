@@ -513,6 +513,60 @@ tr-TR biçiminde göründüğünü gözle kontrol edin.
 `Views/Pages/BenchmarkPage.xaml`,
 `tests/SerkonDiskSuite.Tests/DisplayFormattingTests.cs`
 
+### 17. BUG: Sayfa yerleşimi — içerik dikeyde aşağıya itiliyordu (ÇÖZÜLDÜ — 2026-08-04)
+
+**Kök neden (iki katmanlı):**
+1. `ui:FluentWindow`, `Control`'den (dolayısıyla `HorizontalContentAlignment`/
+   `VerticalContentAlignment`'tan) miras alır ve bunlar açıkça ayarlanmamıştı;
+   pencerenin kendi içeriği (disk listesi + NavigationView'ı içeren dış Grid)
+   doğal boyutuna küçülüp pencere içinde dikeyde ortalanıyordu — bu, "Diskler"
+   panelinin sol altta yüzmesinin nedeniydi (panel NavigationView'ın *dışında*,
+   MainWindow'un kendi içeriğinde).
+2. `ui:NavigationView`, sayfaları GitHub kaynağından (lepoco/wpfui) doğrulanan
+   `NavigationViewContentPresenter : Frame` adlı bir template parçası
+   (`PART_NavigationViewContentPresenter`) üzerinden gösteriyor.
+   `IsDynamicScrollViewerEnabled` (varsayılan `true`) navigasyonla gelen
+   sayfayı sonsuz yükseklik veren bir `ScrollViewer`'a sarıyor; bu yüzden
+   sayfa Grid'lerindeki `"*"` satırları doğal (Auto-eşdeğeri) boyuta küçülüp
+   NavigationView içinde dikeyde ortalanıyordu (üç sayfada da "üstte büyük
+   boş alan").
+
+**Düzeltme:**
+- `MainWindow.xaml` — kök `ui:FluentWindow` öğesine
+  `HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"`.
+- `Resources/Theme.xaml` — `ui:NavigationViewContentPresenter` için
+  `TargetType` stili: `HorizontalContentAlignment`/`VerticalContentAlignment`
+  Stretch (bu iki özelliğin public setter'ı var).
+- `MainWindow.xaml.cs` — `IsDynamicScrollViewerEnabled`'ın CLR set erişeni
+  `protected` olduğundan (XAML derleyicisi `MC3080` ile Style Setter'ı
+  reddetti), `OnLoaded` içinde `VisualTreeHelper` ile
+  `NavigationViewContentPresenter` bulunup `SetValue(...Property, false)`
+  ile DependencyProperty seviyesinde doğrudan kapatılıyor (CLR erişilebilirlik
+  denetimi yalnızca derleme zamanı XAML derleyicisini etkiler, `SetValue`'yu
+  etkilemez).
+- `BenchmarkPage.xaml`, `SystemPage.xaml` — kök `StackPanel` (her zaman
+  içeriğe göre boyutlanır, asla "dolmaz") `Grid`'e çevrildi: üstte Auto
+  satırlar (başlık/kontroller), sonda `"*"` satır (Benchmark'ta sonuç
+  listesi kendi `ScrollViewer`'ıyla kalan alanı doldurur; System'da boş bir
+  `"*"` satır artan boşluğu alta taşır).
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 44/44 başarılı.
+Uygulama başlatılıp 8 saniye ayakta kaldığı doğrulandı (`Responding=True`,
+`MainWindowTitle` görünür — çöküş yok).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — bu, bu ajan
+oturumunda test edilemeyen bir alan: `NavigationViewContentPresenter`'ın
+`IsDynamicScrollViewerEnabled`'ı kapatmanın gerçekten sayfa içeriğini
+NavigationView'ın tüm yüksekliğine yaydığı, disk listesinin artık sol
+sütunu baştan sona doldurduğu ve Benchmark/Sistem sayfalarında içeriğin
+üstten başlayıp boşluğun altta kaldığı gözle kontrol edilmeli. Eğer hâlâ
+ortalanma görülüyorsa, `NavigationViewContentPresenter` içindeki gizli
+`ScrollViewer`'ın farklı bir yoldan (ör. adı değişmiş bir template parçası)
+sarmalandığı ihtimali araştırılmalı.
+
+**Değişiklik:** `src/SerkonDiskSuite.App/Views/MainWindow.xaml`,
+`Views/MainWindow.xaml.cs`, `Resources/Theme.xaml`,
+`Views/Pages/BenchmarkPage.xaml`, `Views/Pages/SystemPage.xaml`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

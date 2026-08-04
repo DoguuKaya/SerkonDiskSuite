@@ -10,9 +10,15 @@
       mc:Ignorable="d">
 
     <ui:Card Margin="0,0,8,8">
-        <StackPanel>
-            <TextBlock Text="Sistem Bilgisi" Style="{StaticResource Heading}" />
-            <StackPanel DataContext="{Binding Summary}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Sistem Bilgisi" Style="{StaticResource Heading}" />
+            <StackPanel Grid.Row="1" DataContext="{Binding Summary}">
                 <TextBlock Margin="0,4">
                     <Run Text="İşletim Sistemi: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                     <Run Text="{Binding OsName, Mode=OneWay}" />
@@ -30,6 +36,7 @@
                     <Run Text="{Binding BiosVersion, Mode=OneWay}" />
                 </TextBlock>
             </StackPanel>
-        </StackPanel>
+            <!-- Grid.Row="2" boş: kalan dikey alan burada kalır (içerik üstte sabit kalır) -->
+        </Grid>
     </ui:Card>
 </Page>

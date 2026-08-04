@@ -11,10 +11,19 @@
       mc:Ignorable="d">
 
     <ui:Card Margin="0,0,8,8">
-        <StackPanel>
-            <TextBlock Text="Performans Testi" Style="{StaticResource Heading}" />
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-            <StackPanel Orientation="Horizontal" Margin="0,8">
+            <TextBlock Grid.Row="0" Text="Performans Testi" Style="{StaticResource Heading}" />
+
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8">
                 <TextBlock Text="Hedef sürücü: " VerticalAlignment="Center" />
                 <TextBlock Text="{Binding TargetDrive}" FontWeight="Bold" VerticalAlignment="Center" />
                 <TextBlock Text="   Boyut (GiB): " VerticalAlignment="Center" Margin="16,0,0,0" />
@@ -35,42 +44,44 @@
                 </ComboBox>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" Margin="0,8">
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8">
                 <ui:Button Content="Testi Başlat" Appearance="Primary" Command="{Binding StartCommand}" />
                 <ui:Button Content="İptal" Command="{Binding CancelCommand}" Margin="8,0,0,0"
                            Appearance="Danger"
                            Visibility="{Binding IsRunning, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
             </StackPanel>
 
-            <ProgressBar Margin="0,8" Minimum="0" Maximum="100"
+            <ProgressBar Grid.Row="3" Margin="0,8" Minimum="0" Maximum="100"
                          Value="{Binding ProgressPercent, Mode=OneWay}" />
-            <TextBlock Text="{Binding ProgressMessage}" Style="{StaticResource Muted}" />
+            <TextBlock Grid.Row="4" Text="{Binding ProgressMessage}" Style="{StaticResource Muted}" />
 
-            <!-- Sonuç kartları -->
-            <ItemsControl ItemsSource="{Binding Results}" Margin="0,12,0,0">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <ui:Card Margin="0,4">
-                            <Grid>
-                                <TextBlock Text="{Binding Kind}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <TextBlock FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" Margin="0,0,12,0"
-                                               Visibility="{Binding Iops, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
-                                        <Run Text="{Binding Iops, Converter={StaticResource NumberToString}, Mode=OneWay}" />
-                                        <Run Text=" IOPS" />
-                                    </TextBlock>
-                                    <TextBlock FontSize="18" FontWeight="Bold"
-                                               Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center">
-                                        <Run Text="{Binding ThroughputMBps, Converter={StaticResource NumberToString}, Mode=OneWay}" />
-                                        <Run Text=" MB/s" />
-                                    </TextBlock>
-                                </StackPanel>
-                            </Grid>
-                        </ui:Card>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </StackPanel>
+            <!-- Sonuç kartları: kalan tüm dikey alanı doldurur, gerekirse kendi içinde kaydırır -->
+            <ScrollViewer Grid.Row="5" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Results}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ui:Card Margin="0,4">
+                                <Grid>
+                                    <TextBlock Text="{Binding Kind}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <TextBlock FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                   VerticalAlignment="Center" Margin="0,0,12,0"
+                                                   Visibility="{Binding Iops, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
+                                            <Run Text="{Binding Iops, Converter={StaticResource NumberToString}, Mode=OneWay}" />
+                                            <Run Text=" IOPS" />
+                                        </TextBlock>
+                                        <TextBlock FontSize="18" FontWeight="Bold"
+                                                   Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center">
+                                            <Run Text="{Binding ThroughputMBps, Converter={StaticResource NumberToString}, Mode=OneWay}" />
+                                            <Run Text=" MB/s" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Grid>
+                            </ui:Card>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
     </ui:Card>
 </Page>
