@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using SerkonDiskSuite.App.Formatting;
 using SerkonDiskSuite.Core.Models;
 
 namespace SerkonDiskSuite.App.Converters;
@@ -28,14 +29,7 @@ public sealed class HealthToBrushConverter : IValueConverter
 public sealed class BytesToStringConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        if (value is not long bytes) return "-";
-        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
-        double size = bytes;
-        int unit = 0;
-        while (size >= 1024 && unit < units.Length - 1) { size /= 1024; unit++; }
-        return $"{size:0.##} {units[unit]}";
-    }
+        => value is long bytes ? DisplayFormatting.FormatBytes(bytes) : "-";
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
@@ -65,4 +59,32 @@ public sealed class BoolToVisibilityConverter : IValueConverter
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => value is Visibility.Visible;
+}
+
+/// <summary>DiskBusType -> standart arayüz kısaltması (NVMe, SATA, USB, SAS, SCSI, Bilinmiyor).</summary>
+public sealed class BusTypeToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value switch
+        {
+            DiskBusType.Nvme => "NVMe",
+            DiskBusType.Sata => "SATA",
+            DiskBusType.Usb => "USB",
+            DiskBusType.Sas => "SAS",
+            DiskBusType.Scsi => "SCSI",
+            _ => "Bilinmiyor"
+        };
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>IsSolidState (bool) -> "SSD" / "HDD".</summary>
+public sealed class SolidStateToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? "SSD" : "HDD";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
 }

@@ -112,28 +112,79 @@ Yeni dosya: `src/SerkonDiskSuite.Infrastructure/Wmi/PcieLinkInfoReader.cs`
 doğrulandı: `BusType=Nvme`, `TransferMode="PCIe 3.0 x4 (maks. PCIe 4.0
 x4)"`. `dotnet build`: 0 hata/uyarı. `dotnet test`: 16/16 başarılı.
 
+### 4. ARAYÜZ: Koyu tema stilleri + Türkçe etiketler + yerleşim düzeltmesi (TAMAMLANDI — 2026-08-04)
+
+**Sorun:** `Resources/Theme.xaml` içinde DataGrid, TabControl, TextBox,
+ScrollBar, ListBox için hiç stil yoktu; bu yüzden WPF'in varsayılan açık
+tema renkleri koyu pencere zemininde kullanılıyor, özellikle DataGrid
+hücrelerinde siyah yazı koyu satır zemini üzerinde okunmuyordu ve
+TabItem başlıkları neredeyse görünmüyordu. Ayrıca SMART öznitelik
+tablosunda ham alan adları ("nsid", "percentage_used", "data_units_read")
+ve ham sayısal değerler olduğu gibi gösteriliyordu; sağlık sekmesindeki
+DataGrid `MaxHeight="320"` ile sınırlıydı ve altında büyük boş alan
+kalıyordu.
+
+**Yapılan değişiklikler:**
+- `Resources/Theme.xaml`: DataGridColumnHeader/DataGridRow/DataGridCell,
+  TabControl/TabItem (tam özel `ControlTemplate`, seçili/hover/normal
+  durumları ayrı), TextBox, ProgressBar, ScrollBar (ince özel `Track`/
+  `Thumb` şablonu), ListBox/ListBoxItem için açık stiller eklendi.
+  Yeni paleti (`HeaderBackgroundColor`, `RowHoverColor`,
+  `RowSelectedColor`, `BorderMutedColor`, `AccentColor` #2563EB,
+  `AccentTextColor` #60A5FA, `ErrorTextColor`, `DangerColor`) WCAG AA
+  hedefiyle (gövde metni ≥4.5:1, büyük/kalın durum rozetleri ≥3:1)
+  hesaplayıp doğruladım — oranlar dosyanın başındaki yorumda listeli
+  (ör. TextColor/SurfaceAlt 11.73:1, TextMuted/SurfaceAlt 5.47:1,
+  White/AccentColor 5.17:1, ErrorTextColor/Surface 5.83:1).
+- `Formatting/DisplayFormatting.cs`, `SmartAttributeLabels.cs`,
+  `SmartAttributeValueFormatter.cs` (yeni): SMART öznitelik ham adları
+  için Türkçe sözlük (ör. "Kullanım Yüzdesi", "Okunan Veri Birimi";
+  ham ad hücre tooltip'inde kalıyor) + `data_units_read` -> bayt ->
+  "8,93 TB", `power_on_hours` -> "8.962 saat" gibi tr-TR yerelleştirmeli
+  değer biçimlendirme.
+- `Converters/SmartAttributeConverters.cs` (yeni) + `Converters.cs`'e
+  `BusTypeToStringConverter`/`SolidStateToStringConverter` eklendi;
+  `BytesToStringConverter` artık `DisplayFormatting.FormatBytes` kullanıyor
+  (tr-TR virgüllü ondalık).
+- `Views/MainWindow.xaml`: Sağlık sekmesi `ScrollViewer`+`StackPanel`
+  yerine `Grid` (Auto/Auto/Auto/Auto/`*`) ile yeniden kuruldu; DataGrid
+  artık kalan tüm dikey alanı dolduruyor (MaxHeight kaldırıldı). Hata
+  metni yeni `ErrorText` stiliyle, iptal butonu yeni `DangerButton`
+  stiliyle gösteriliyor; inline renk/stil override'ları (Background,
+  BorderThickness vb.) kaldırılıp Theme.xaml'deki implicit stillere
+  bırakıldı ki yeni stiller gerçekten devreye girsin.
+
+**Doğrulama:** `dotnet build` (tüm çözüm): 0 hata/0 uyarı. `dotnet test`:
+16/16 başarılı. **Görsel doğrulama kullanıcı tarafından elle yapılmalı**
+— WPF arayüzünü göremiyorum; kontrast oranlarını yukarıdaki gibi
+hesaplayarak doğruladım ama gerçek render'ı (font kalınlığı, TabItem
+geçişleri, ScrollBar görünümü) uygulamayı açıp gözle kontrol etmeniz
+gerekiyor.
+
 ## Devam eden iş
 
-- Yok.
+- (B) eksik özellikler sırayla ekleniyor: disk detay paneli, sağlık
+  özet kartları (+AvailableSpare), benchmark IOPS/blok boyutu, gerçek
+  zamanlı sıcaklık grafiği (LiveCharts2), SMART trend loglama.
 
 ## Sıradaki işler (öncelik sırasına göre)
 
-1. **SMART verilerinin arayüzde doğru görünmesini test et** — uygulamayı
-   yönetici olarak çalıştırıp (UAC nedeniyle bu adım kullanıcı
-   etkileşimi/manuel çalıştırma gerektirebilir) `HealthViewModel`'in
-   gerçek SMART verisiyle dolduğunu doğrula. **Bu ajan oturumunda
-   yükseltilmemiş (non-admin) kabuk yüzünden yapılamadı — kullanıcının
-   uygulamayı yönetici olarak çalıştırıp kontrol etmesi gerekiyor.**
-2. Kalan CLAUDE.md genişletme fikirleri (sırayla):
-   - Gerçek zamanlı sıcaklık grafiği (LiveCharts2)
-   - SMART verisini periyodik loglama + trend
-   - Firmware güncelleme uyarısı
-   - Çoklu dil desteği
+1. **Kullanıcı elle kontrol etmeli:** Yeni Theme.xaml stillerinin gerçek
+   görünümü (DataGrid okunabilirliği, TabItem geçişleri, ScrollBar,
+   TextBox odak rengi) — WPF render'ı bu ajan oturumunda görülemiyor.
+2. **SMART verilerinin arayüzde doğru görünmesini test et** — uygulamayı
+   yönetici olarak çalıştırıp `HealthViewModel`'in gerçek SMART
+   verisiyle dolduğunu doğrula (UAC nedeniyle kullanıcı etkileşimi
+   gerekebilir).
+3. (B) görevleri: disk detay paneli, sağlık özet kartları, benchmark
+   IOPS/blok boyutu, gerçek zamanlı sıcaklık grafiği, trend loglama.
+4. Firmware güncelleme uyarısı, çoklu dil desteği (ileri aşama fikirleri).
 
 ## Bilinen buglar
 
 - Yok (aktif olarak bilinen başka bug yok; SMART/Benchmark sekmeleri henüz
-  gerçek donanımda uçtan uca test edilmedi).
+  gerçek donanımda uçtan uca test edilmedi; yeni arayüz stilleri henüz
+  gerçek render ile gözle doğrulanmadı — bkz. yukarıdaki not).
 
 ## Notlar
 
@@ -144,3 +195,7 @@ x4)"`. `dotnet build`: 0 hata/uyarı. `dotnet test`: 16/16 başarılı.
   (yükseltilmemiş kabuk) doğrudan UI üzerinden UAC promptu geçilip
   görsel doğrulama yapılamadı; doğrulama `WmiDiskProvider` seviyesinde
   doğrudan API çağrısıyla yapıldı (yukarıya bakın).
+- Elevated (yönetici) çalışan `SerkonDiskSuite.exe` süreci, bu ajan
+  oturumunun yükseltilmemiş kabuğundan `taskkill` ile sonlandırılamıyor
+  ("Erişim engellendi"); build sırasında exe kilitliyse kullanıcının
+  pencereyi elle kapatması gerekiyor.

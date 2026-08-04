@@ -9,6 +9,10 @@
     <Window.Resources>
         <conv:HealthToBrushConverter x:Key="HealthToBrush" />
         <conv:BytesToStringConverter x:Key="BytesToString" />
+        <conv:SmartAttributeNameConverter x:Key="SmartAttributeName" />
+        <conv:SmartAttributeValueConverter x:Key="SmartAttributeValue" />
+        <conv:BusTypeToStringConverter x:Key="BusTypeToString" />
+        <conv:SolidStateToStringConverter x:Key="SolidStateToString" />
     </Window.Resources>
 
     <Grid Margin="8">
@@ -36,9 +40,7 @@
                 <Button DockPanel.Dock="Bottom" Content="Yenile" Margin="0,8,0,0"
                         Command="{Binding LoadCommand}" />
                 <ListBox ItemsSource="{Binding Disks}"
-                         SelectedItem="{Binding SelectedDisk}"
-                         Background="Transparent" BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                         SelectedItem="{Binding SelectedDisk}">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border Background="{StaticResource SurfaceAltBrush}"
@@ -49,7 +51,7 @@
                                     <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,0">
                                         <Run Text="{Binding CapacityDisplay, Mode=OneWay}" />
                                         <Run Text=" • " />
-                                        <Run Text="{Binding BusType, Mode=OneWay}" />
+                                        <Run Text="{Binding BusType, Converter={StaticResource BusTypeToString}, Mode=OneWay}" />
                                     </TextBlock>
                                     <ItemsControl ItemsSource="{Binding DriveLetters}" Margin="0,4,0,0">
                                         <ItemsControl.ItemsPanel>
@@ -61,7 +63,7 @@
                                             <DataTemplate>
                                                 <Border Background="{StaticResource AccentBrush}"
                                                         CornerRadius="4" Padding="6,2" Margin="0,0,4,0">
-                                                    <TextBlock Text="{Binding}" FontSize="11" Foreground="White" />
+                                                    <TextBlock Text="{Binding}" FontSize="12" FontWeight="SemiBold" Foreground="White" />
                                                 </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -75,75 +77,84 @@
         </Border>
 
         <!-- Sağ: sekmeler -->
-        <TabControl Grid.Row="1" Grid.Column="1" Background="Transparent" BorderThickness="0"
-                    Margin="8">
+        <TabControl Grid.Row="1" Grid.Column="1" Margin="8">
             <!-- Sağlık sekmesi -->
             <TabItem Header="Sağlık (SMART)">
                 <Border Style="{StaticResource Card}" DataContext="{Binding Health}">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
-                            <Grid>
-                                <TextBlock Text="Disk Sağlığı" Style="{StaticResource Heading}" />
-                                <Button Content="Yenile" HorizontalAlignment="Right"
-                                        Command="{Binding RefreshCommand}" />
-                            </Grid>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
-                            <TextBlock Text="{Binding Error}" Foreground="{StaticResource BadBrush}"
-                                       TextWrapping="Wrap" Margin="0,4"
-                                       Visibility="{Binding Error, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
+                        <Grid Grid.Row="0">
+                            <TextBlock Text="Disk Sağlığı" Style="{StaticResource Heading}" />
+                            <Button Content="Yenile" HorizontalAlignment="Right"
+                                    Command="{Binding RefreshCommand}" />
+                        </Grid>
 
-                            <!-- Özet kutuları -->
-                            <UniformGrid Columns="4" Margin="0,8"
-                                         Visibility="{Binding Health, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
-                                <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
-                                    <StackPanel>
-                                        <TextBlock Text="Durum" Style="{StaticResource Muted}" />
-                                        <TextBlock Text="{Binding Health.OverallStatus}"
-                                                   FontSize="20" FontWeight="Bold"
-                                                   Foreground="{Binding Health.OverallStatus, Converter={StaticResource HealthToBrush}}" />
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
-                                    <StackPanel>
-                                        <TextBlock Text="Sıcaklık" Style="{StaticResource Muted}" />
-                                        <TextBlock FontSize="20" FontWeight="Bold">
-                                            <Run Text="{Binding Health.TemperatureCelsius, Mode=OneWay}" />
-                                            <Run Text="°C" />
-                                        </TextBlock>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
-                                    <StackPanel>
-                                        <TextBlock Text="Kalan Ömür" Style="{StaticResource Muted}" />
-                                        <TextBlock FontSize="20" FontWeight="Bold">
-                                            <Run Text="{Binding Health.RemainingLifePercent, Mode=OneWay}" />
-                                            <Run Text="%" />
-                                        </TextBlock>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
-                                    <StackPanel>
-                                        <TextBlock Text="Açılma Sayısı" Style="{StaticResource Muted}" />
-                                        <TextBlock Text="{Binding Health.PowerCycleCount, Mode=OneWay}"
-                                                   FontSize="20" FontWeight="Bold" />
-                                    </StackPanel>
-                                </Border>
-                            </UniformGrid>
+                        <TextBlock Grid.Row="1" Text="{Binding Error}" Style="{StaticResource ErrorText}" Margin="0,4"
+                                   Visibility="{Binding Error, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
 
-                            <!-- Öznitelik tablosu -->
-                            <TextBlock Text="SMART Öznitelikleri" Style="{StaticResource Heading}" Margin="0,12,0,4" />
-                            <DataGrid ItemsSource="{Binding Attributes}" AutoGenerateColumns="False"
-                                      IsReadOnly="True" HeadersVisibility="Column"
-                                      Background="Transparent" RowBackground="{StaticResource SurfaceAltBrush}"
-                                      GridLinesVisibility="None" BorderThickness="0" MaxHeight="320">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60" />
-                                    <DataGridTextColumn Header="İsim" Binding="{Binding Name}" Width="*" />
-                                    <DataGridTextColumn Header="Değer" Binding="{Binding RawValue}" Width="160" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </StackPanel>
-                    </ScrollViewer>
+                        <!-- Özet kutuları -->
+                        <UniformGrid Grid.Row="2" Columns="4" Margin="0,8"
+                                     Visibility="{Binding Health, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
+                            <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="Durum" Style="{StaticResource Muted}" />
+                                    <TextBlock Text="{Binding Health.OverallStatus}"
+                                               FontSize="20" FontWeight="Bold"
+                                               Foreground="{Binding Health.OverallStatus, Converter={StaticResource HealthToBrush}}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="Sıcaklık" Style="{StaticResource Muted}" />
+                                    <TextBlock FontSize="20" FontWeight="Bold">
+                                        <Run Text="{Binding Health.TemperatureCelsius, Mode=OneWay}" />
+                                        <Run Text="°C" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="Kalan Ömür" Style="{StaticResource Muted}" />
+                                    <TextBlock FontSize="20" FontWeight="Bold">
+                                        <Run Text="{Binding Health.RemainingLifePercent, Mode=OneWay}" />
+                                        <Run Text="%" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="Açılma Sayısı" Style="{StaticResource Muted}" />
+                                    <TextBlock Text="{Binding Health.PowerCycleCount, Mode=OneWay}"
+                                               FontSize="20" FontWeight="Bold" />
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <!-- Öznitelik tablosu -->
+                        <TextBlock Grid.Row="3" Text="SMART Öznitelikleri" Style="{StaticResource Heading}" Margin="0,12,0,4" />
+                        <DataGrid Grid.Row="4" ItemsSource="{Binding Attributes}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60" />
+                                <DataGridTextColumn Header="Öznitelik" Width="*"
+                                                     Binding="{Binding Converter={StaticResource SmartAttributeName}}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                            <Setter Property="ToolTip" Value="{Binding Name}" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Değer" Width="180"
+                                                     Binding="{Binding Converter={StaticResource SmartAttributeValue}}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
                 </Border>
             </TabItem>
 
@@ -157,25 +168,19 @@
                             <TextBlock Text="Hedef sürücü: " VerticalAlignment="Center" />
                             <TextBlock Text="{Binding TargetDrive}" FontWeight="Bold" VerticalAlignment="Center" />
                             <TextBlock Text="   Boyut (GiB): " VerticalAlignment="Center" Margin="16,0,0,0" />
-                            <TextBox Text="{Binding TestSizeGiB}" Width="50" VerticalAlignment="Center"
-                                     Background="{StaticResource SurfaceAltBrush}" Foreground="{StaticResource TextBrush}"
-                                     BorderThickness="0" Padding="6,4" />
+                            <TextBox Text="{Binding TestSizeGiB}" Width="50" VerticalAlignment="Center" />
                             <TextBlock Text="   Geçiş: " VerticalAlignment="Center" Margin="16,0,0,0" />
-                            <TextBox Text="{Binding Passes}" Width="40" VerticalAlignment="Center"
-                                     Background="{StaticResource SurfaceAltBrush}" Foreground="{StaticResource TextBrush}"
-                                     BorderThickness="0" Padding="6,4" />
+                            <TextBox Text="{Binding Passes}" Width="40" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,8">
                             <Button Content="Testi Başlat" Command="{Binding StartCommand}" />
                             <Button Content="İptal" Command="{Binding CancelCommand}" Margin="8,0,0,0"
-                                    Background="{StaticResource BadBrush}"
+                                    Style="{StaticResource DangerButton}"
                                     Visibility="{Binding IsRunning, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
 
-                        <ProgressBar Height="6" Margin="0,8" IsIndeterminate="{Binding IsRunning}"
-                                     Background="{StaticResource SurfaceAltBrush}" Foreground="{StaticResource AccentBrush}"
-                                     BorderThickness="0" />
+                        <ProgressBar Margin="0,8" IsIndeterminate="{Binding IsRunning}" />
                         <TextBlock Text="{Binding ProgressMessage}" Style="{StaticResource Muted}" />
 
                         <!-- Sonuç kartları -->
@@ -185,10 +190,10 @@
                                     <Border Background="{StaticResource SurfaceAltBrush}" CornerRadius="8"
                                             Padding="14" Margin="0,4">
                                         <Grid>
-                                            <TextBlock Text="{Binding Kind}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Kind}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                 <TextBlock FontSize="18" FontWeight="Bold"
-                                                           Foreground="{StaticResource AccentBrush}">
+                                                           Foreground="{StaticResource AccentTextBrush}" VerticalAlignment="Center">
                                                     <Run Text="{Binding ThroughputMBps, StringFormat=N0, Mode=OneWay}" />
                                                     <Run Text=" MB/s" />
                                                 </TextBlock>
