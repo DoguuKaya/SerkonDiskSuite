@@ -31,6 +31,9 @@ public sealed class SmartHealth
     /// <summary>Güvensiz (ani) kapanma sayısı.</summary>
     public long? UnsafeShutdowns { get; init; }
 
+    /// <summary>Kullanılabilir yedek yüzdesi (0-100). NVMe "available_spare" alanından gelir.</summary>
+    public int? AvailableSparePercent { get; init; }
+
     /// <summary>Ham SMART öznitelikleri (tabloda göstermek için).</summary>
     public IReadOnlyList<SmartAttribute> Attributes { get; init; } = [];
 

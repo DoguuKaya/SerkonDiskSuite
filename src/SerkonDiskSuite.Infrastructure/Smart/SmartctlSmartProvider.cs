@@ -81,6 +81,7 @@ public sealed class SmartctlSmartProvider : ISmartProvider
             PowerOnHours = TryGetLong(root, "power_on_time", "hours"),
             PowerCycleCount = TryGetLongDirect(root, "power_cycle_count"),
             UnsafeShutdowns = TryGetNvmeLong(root, "unsafe_shutdowns"),
+            AvailableSparePercent = TryGetNvmeInt(root, "available_spare"),
             TotalBytesRead = TryGetNvmeDataUnits(root, "data_units_read"),
             TotalBytesWritten = TryGetNvmeDataUnits(root, "data_units_written"),
             Attributes = ExtractAttributes(root),
@@ -134,6 +135,12 @@ public sealed class SmartctlSmartProvider : ISmartProvider
         => root.TryGetProperty("nvme_smart_health_information_log", out var log)
            && log.TryGetProperty(prop, out var p)
             ? p.GetInt64()
+            : null;
+
+    private static int? TryGetNvmeInt(JsonElement root, string prop)
+        => root.TryGetProperty("nvme_smart_health_information_log", out var log)
+           && log.TryGetProperty(prop, out var p)
+            ? p.GetInt32()
             : null;
 
     /// <summary>NVMe data_units_* değeri 1000 x 512 bayt birimindedir.</summary>

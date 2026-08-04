@@ -13,6 +13,8 @@
         <conv:SmartAttributeValueConverter x:Key="SmartAttributeValue" />
         <conv:BusTypeToStringConverter x:Key="BusTypeToString" />
         <conv:SolidStateToStringConverter x:Key="SolidStateToString" />
+        <conv:HoursToStringConverter x:Key="HoursToString" />
+        <conv:CountToStringConverter x:Key="CountToString" />
     </Window.Resources>
 
     <Grid Margin="8">
@@ -140,7 +142,7 @@
                                    Visibility="{Binding Error, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
 
                         <!-- Özet kutuları -->
-                        <UniformGrid Grid.Row="2" Columns="4" Margin="0,8"
+                        <UniformGrid Grid.Row="2" Columns="3" Margin="0,8"
                                      Visibility="{Binding Health, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
                             <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
                                 <StackPanel>
@@ -170,8 +172,45 @@
                             </Border>
                             <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
                                 <StackPanel>
+                                    <TextBlock Text="Kullanılabilir Yedek" Style="{StaticResource Muted}" />
+                                    <TextBlock FontSize="20" FontWeight="Bold">
+                                        <Run Text="{Binding Health.AvailableSparePercent, Mode=OneWay}" />
+                                        <Run Text="%" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
+                                <StackPanel>
                                     <TextBlock Text="Açılma Sayısı" Style="{StaticResource Muted}" />
                                     <TextBlock Text="{Binding Health.PowerCycleCount, Mode=OneWay}"
+                                               FontSize="20" FontWeight="Bold" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="Güvensiz Kapanma" Style="{StaticResource Muted}" />
+                                    <TextBlock Text="{Binding Health.UnsafeShutdowns, Converter={StaticResource CountToString}, Mode=OneWay}"
+                                               FontSize="20" FontWeight="Bold" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="Çalışma Süresi" Style="{StaticResource Muted}" />
+                                    <TextBlock Text="{Binding Health.PowerOnHours, Converter={StaticResource HoursToString}, Mode=OneWay}"
+                                               FontSize="20" FontWeight="Bold" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="Toplam Okunan" Style="{StaticResource Muted}" />
+                                    <TextBlock Text="{Binding Health.TotalBytesRead, Converter={StaticResource BytesToString}, Mode=OneWay}"
+                                               FontSize="20" FontWeight="Bold" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAltBrush}">
+                                <StackPanel>
+                                    <TextBlock Text="Toplam Yazılan" Style="{StaticResource Muted}" />
+                                    <TextBlock Text="{Binding Health.TotalBytesWritten, Converter={StaticResource BytesToString}, Mode=OneWay}"
                                                FontSize="20" FontWeight="Bold" />
                                 </StackPanel>
                             </Border>

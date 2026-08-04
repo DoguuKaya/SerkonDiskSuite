@@ -174,11 +174,27 @@ Auto, içerik `*`, durum çubuğu Auto).
 **Doğrulama:** `dotnet build`: 0 hata/uyarı. `dotnet test`: 16/16 başarılı.
 **Görsel doğrulama kullanıcı tarafından elle yapılmalı.**
 
+### 6. ÖZELLİK: Sağlık sekmesi ek özet kartları + AvailableSpare (TAMAMLANDI — 2026-08-04)
+
+`SmartHealth`'e `AvailableSparePercent` (NVMe "available_spare") eklendi
+ve `SmartctlSmartProvider`'da dolduruldu (`TryGetNvmeInt` yardımcı
+metodu). Sağlık sekmesindeki özet kutuları 4'ten 9'a çıkarıldı
+(3x3 `UniformGrid`): Durum, Sıcaklık, Kalan Ömür, Kullanılabilir Yedek,
+Açılma Sayısı, Güvensiz Kapanma, Çalışma Süresi, Toplam Okunan, Toplam
+Yazılan. Yeni `HoursToStringConverter`/`CountToStringConverter` tr-TR
+binlik ayraçla biçimlendiriyor; bayt alanları mevcut `BytesToString`
+converter'ını kullanıyor.
+
+**Doğrulama:** `dotnet build`: 0 hata/uyarı. `dotnet test`: 16/16 başarılı.
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** (gerçek NVMe
+donanımında `available_spare` alanının smartctl JSON çıktısında
+beklenen konumda geldiği varsayılıyor — bu ajan oturumunda canlı SMART
+verisiyle test edilemedi).
+
 ## Devam eden iş
 
-- (B) kalan özellikler sırayla ekleniyor: sağlık özet kartları
-  (+AvailableSpare), benchmark IOPS/blok boyutu, gerçek zamanlı sıcaklık
-  grafiği (LiveCharts2), SMART trend loglama.
+- (B) kalan özellikler sırayla ekleniyor: benchmark IOPS/blok boyutu,
+  gerçek zamanlı sıcaklık grafiği (LiveCharts2), SMART trend loglama.
 
 ## Sıradaki işler (öncelik sırasına göre)
 

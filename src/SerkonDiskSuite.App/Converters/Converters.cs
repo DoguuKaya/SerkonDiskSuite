@@ -88,3 +88,23 @@ public sealed class SolidStateToStringConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>Saat (long) -> "8.962 saat" (tr-TR binlik ayraç).</summary>
+public sealed class HoursToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is long hours ? DisplayFormatting.FormatHours(hours) : "-";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>Tam sayı (long) -> tr-TR binlik ayraçlı dizge (ör. "12.345").</summary>
+public sealed class CountToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is long count ? DisplayFormatting.FormatCount(count) : "-";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
