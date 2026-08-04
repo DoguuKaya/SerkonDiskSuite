@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using Microsoft.Win32.SafeHandles;
 using SerkonDiskSuite.Core.Formatting;
@@ -85,8 +86,7 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
 
             ReportProgress(0);
 
-            var (throughput, iops, duration) = await Task.Run(
-                () => RunSinglePass(kind, filePath, options, ct, ReportProgress), ct);
+            var (throughput, iops, duration) = await RunSinglePassAsync(kind, filePath, options, ct, ReportProgress);
 
             if (throughput > bestThroughput)
             {
@@ -97,10 +97,20 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         }
 
         bool isRandom = kind is BenchmarkTestKind.RandomRead or BenchmarkTestKind.RandomWrite;
-        return new BenchmarkResult(kind, bestThroughput, isRandom ? bestIops : null, bestDuration);
+        return new BenchmarkResult(
+            kind, bestThroughput, isRandom ? bestIops : null, bestDuration,
+            options.QueueDepth, options.ThreadCount);
     }
 
-    private static (double ThroughputMBps, double Iops, TimeSpan Duration) RunSinglePass(
+    /// <summary>
+    /// Tek bir geçişi çalıştırır. Kuyruk derinliği (queue depth) x iş parçacığı (thread) kadar
+    /// eşzamanlı I/O isteğini <see cref="Parallel.ForEachAsync{TSource}"/> ile havada tutar
+    /// (gerçek overlapped I/O için handle <see cref="FileOptions.Asynchronous"/> ile açılır).
+    /// Rastgele testlerde her blok indeksi için erişilecek ofset, paylaşılan değişebilir durum
+    /// olmadan (thread-safe, sıra bağımsız) deterministik bir karma fonksiyonuyla hesaplanır;
+    /// böylece eşzamanlı çalışmaya rağmen aynı test her seferinde aynı erişim setini üretir.
+    /// </summary>
+    private static async Task<(double ThroughputMBps, double Iops, TimeSpan Duration)> RunSinglePassAsync(
         BenchmarkTestKind kind,
         string filePath,
         BenchmarkOptions options,
@@ -120,8 +130,10 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         if (!isWrite && !File.Exists(filePath))
             EnsureTestFile(filePath, fileSize, blockSize);
 
-        var buffer = AllocateAligned(blockSize);
-        FillRandom(buffer);
+        // Yazma testlerinde tüm eşzamanlı istekler bu salt-okunur, hiç değişmeyen kaynağı
+        // paylaşır (thread-safe); okuma testlerinde her istek havuzdan kendi arabelleğini kiralar.
+        var sourceBuffer = AllocateAligned(blockSize);
+        FillRandom(sourceBuffer);
 
         var access = isWrite ? FileAccess.Write : FileAccess.Read;
         // Preallocation yalnizca dosyayi (yeniden) olusturan modlarla (Create/CreateNew/Truncate)
@@ -129,36 +141,49 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         // firlar. Yazma gecisleri her seferinde dosyayi tazeden olusturur, okuma gecisleri var olan
         // dosyayi acar ve preallocation istemez.
         var mode = isWrite ? FileMode.Create : FileMode.Open;
-        var opts = NoBuffering | FileOptions.WriteThrough;
+        var opts = NoBuffering | FileOptions.WriteThrough | FileOptions.Asynchronous;
         long preallocationSize = isWrite ? fileSize : 0;
 
         using var handle = File.OpenHandle(filePath, mode, access, FileShare.None, opts, preallocationSize);
 
-        var rng = new Random(12345); // deterministik erişim deseni
-        var sw = Stopwatch.StartNew();
         long bytesProcessed = 0;
-
-        // Geçiş başına ~50 ilerleme bildirimi yeterli; her bloğu bildirmek gereksiz UI güncellemesine yol açar.
+        long completed = 0;
         int reportEvery = Math.Max(1, totalBlocks / 50);
+        int maxConcurrency = Math.Max(1, options.QueueDepth) * Math.Max(1, options.ThreadCount);
 
-        for (int i = 0; i < totalBlocks; i++)
-        {
-            ct.ThrowIfCancellationRequested();
+        var sw = Stopwatch.StartNew();
 
-            long offset = isRandom
-                ? (long)rng.Next(0, totalBlocks) * blockSize
-                : (long)i * blockSize;
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, totalBlocks),
+            new ParallelOptions { MaxDegreeOfParallelism = maxConcurrency, CancellationToken = ct },
+            async (i, token) =>
+            {
+                long offset = isRandom
+                    ? (long)DeterministicRandomBlockIndex(i, totalBlocks) * blockSize
+                    : (long)i * blockSize;
 
-            if (isWrite)
-                RandomAccess.Write(handle, buffer, offset);
-            else
-                RandomAccess.Read(handle, buffer, offset);
+                if (isWrite)
+                {
+                    await RandomAccess.WriteAsync(handle, sourceBuffer, offset, token);
+                }
+                else
+                {
+                    var rented = ArrayPool<byte>.Shared.Rent(blockSize);
+                    try
+                    {
+                        await RandomAccess.ReadAsync(handle, rented.AsMemory(0, blockSize), offset, token);
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(rented);
+                    }
+                }
 
-            bytesProcessed += blockSize;
-
-            if (onProgress is not null && (i % reportEvery == 0 || i == totalBlocks - 1))
-                onProgress((double)(i + 1) / totalBlocks);
-        }
+                Interlocked.Add(ref bytesProcessed, blockSize);
+                long done = Interlocked.Increment(ref completed);
+                if (onProgress is not null && (done % reportEvery == 0 || done == totalBlocks))
+                    onProgress((double)done / totalBlocks);
+            });
 
         sw.Stop();
 
@@ -167,6 +192,21 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         double iops = seconds > 0 ? totalBlocks / seconds : 0;
 
         return (throughputMBps, iops, sw.Elapsed);
+    }
+
+    /// <summary>
+    /// Blok indeksinden [0, totalBlocks) aralığında deterministik, paylaşılan durumsuz
+    /// (thread-safe) bir "rastgele" indeks üretir (SplitMix64 sonlandırıcısı). Eşzamanlı
+    /// isteklerin tamamlanma sırası değişse de her indeks her zaman aynı ofsete erişir.
+    /// </summary>
+    private static int DeterministicRandomBlockIndex(int index, int totalBlocks)
+    {
+        const ulong Seed = 0x5EED_C0DEUL;
+        ulong x = unchecked((ulong)index + Seed) * 0x9E3779B97F4A7C15UL;
+        x ^= x >> 30; x *= 0xBF58476D1CE4E5B9UL;
+        x ^= x >> 27; x *= 0x94D049BB133111EBUL;
+        x ^= x >> 31;
+        return (int)(x % (ulong)totalBlocks);
     }
 
     private static void EnsureTestFile(string filePath, long fileSize, int blockSize)

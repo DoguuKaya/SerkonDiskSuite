@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SerkonDiskSuite.Core\SerkonDiskSuite.Core.csproj" />
+    <ProjectReference Include="..\..\src\SerkonDiskSuite.Infrastructure\SerkonDiskSuite.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

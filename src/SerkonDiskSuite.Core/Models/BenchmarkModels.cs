@@ -17,6 +17,18 @@ public sealed class BenchmarkOptions
 
     /// <summary>Rastgele testlerde blok boyutu (bayt). Varsayılan 4 KiB.</summary>
     public int RandomBlockSize { get; init; } = 4 * 1024;
+
+    /// <summary>
+    /// Aynı anda kuyruğa alınacak (havada bekleyen) I/O isteği sayısı (Queue Depth).
+    /// CrystalDiskMark'taki "Q" değeriyle eşdeğerdir. Varsayılan 1 (Q1, eski davranış).
+    /// </summary>
+    public int QueueDepth { get; init; } = 1;
+
+    /// <summary>
+    /// Testi çalıştıracak eşzamanlı iş parçacığı sayısı (Thread count). CrystalDiskMark'taki
+    /// "T" değeriyle eşdeğerdir. Varsayılan 1 (T1, eski davranış).
+    /// </summary>
+    public int ThreadCount { get; init; } = 1;
 }
 
 /// <summary>Tek bir testin sonucu.</summary>
@@ -24,7 +36,9 @@ public sealed record BenchmarkResult(
     BenchmarkTestKind Kind,
     double ThroughputMBps,
     double? Iops,
-    TimeSpan Duration);
+    TimeSpan Duration,
+    int QueueDepth = 1,
+    int ThreadCount = 1);
 
 public enum BenchmarkTestKind
 {

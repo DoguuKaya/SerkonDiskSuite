@@ -626,6 +626,72 @@ göründüğü (gerekirse ikinci satıra kayarak) gözle kontrol edilmeli.
 `Views/Pages/HealthPage.xaml`, `Views/MainWindow.xaml`,
 `src/SerkonDiskSuite.Infrastructure/Smart/SmartctlSmartProvider.cs`
 
+### 20. ÖZELLİK: Benchmark motoruna queue depth/thread desteği (TAMAMLANDI — 2026-08-04)
+
+**Değişiklik özeti:** `DiskBenchmarkRunner` artık her test Q1T1 (tek istek,
+tek iş parçacığı) değil, `BenchmarkOptions.QueueDepth` x
+`BenchmarkOptions.ThreadCount` kadar eşzamanlı I/O isteğini havada
+tutabiliyor — CrystalDiskMark'ın gerçekçi sonuçlar üretmesinin asıl
+nedeni de bu.
+
+**Uygulama:**
+- Dosya handle'ı artık `FileOptions.Asynchronous` ile de açılıyor (gerçek
+  overlapped I/O için; `NoBuffering`/`WriteThrough` korunuyor).
+- `RunSinglePass` (senkron, sıralı for-loop) yerine `RunSinglePassAsync`:
+  `Parallel.ForEachAsync` ile `MaxDegreeOfParallelism = QueueDepth x
+  ThreadCount`, gövdede `RandomAccess.ReadAsync`/`WriteAsync` kullanılıyor.
+- **Eşzamanlılık güvenliği:** Yazma testlerinde tüm eşzamanlı istekler
+  paylaşılan, hiç değişmeyen (salt okunur) bir kaynak arabelleği
+  kullanıyor (thread-safe, çünkü asla mutasyona uğramıyor); okuma
+  testlerinde her istek `ArrayPool<byte>.Shared`'dan kendi arabelleğini
+  kiralayıp işi bitince geri veriyor (önceki tek-arabellek + sıralı
+  erişim modeli artık güvenli değildi, çünkü aynı arabelleğe eşzamanlı
+  birden fazla I/O yapılması veri yarışına yol açardı).
+- **Determinizm:** Rastgele testlerde önceki `Random(12345).Next(...)`
+  (sıralı, tek iş parçacıklı erişimde deterministikti) yerine, blok
+  indeksinden paylaşılan durumsuz bir SplitMix64-türevi karma fonksiyonu
+  (`DeterministicRandomBlockIndex`) kullanılıyor — eşzamanlı çalışmada
+  isteklerin tamamlanma SIRASI değişebildiği için stateful bir RNG'nin
+  sıralı `.Next()` çağrılarına güvenmek artık doğru sonuç vermezdi; saf
+  fonksiyon her indeks için her zaman aynı "rastgele" ofseti üretir
+  (thread-safe, hâlâ deterministik/tekrarlanabilir).
+- `BenchmarkOptions`'a `QueueDepth`/`ThreadCount` (varsayılan 1/1, eski
+  davranışla tam geriye uyumlu), `BenchmarkResult`'a da aynı iki alan
+  eklendi (sonuçta hangi Q/T ile üretildiği görünür — madde 7'nin profil
+  gösterimi için de kullanılacak).
+- İlerleme raporlama artık `Interlocked` sayaçlarla eşzamanlı güvenli.
+
+**Test altyapısı değişikliği:** `SerkonDiskSuite.Tests` artık
+`net8.0-windows`'a hedefleniyor ve `SerkonDiskSuite.Infrastructure`'a
+proje referansı var (önceden yalnızca Core'a bakıyordu) — bu, gerçek
+dosya I/O'suyla çalışan `DiskBenchmarkRunner`'ı doğrudan test edebilmek
+için gerekliydi.
+
+**Doğrulama:** Yeni `DiskBenchmarkRunnerTests` (temp dizinde küçük — 256
+KiB — gerçek dosyalarla): Q1T1 varsayılanının 4 test türü için de sonuç
+ürettiğini, Q4T1/Q1T4/Q4T2 gibi yüksek eşzamanlılık kombinasyonlarının
+hatasız tamamlandığını ve sonuçlara doğru Q/T etiketlerinin yazıldığını,
+iptalin (`CancellationToken`) çalıştığını doğruluyor — **gerçek disk I/O
+üzerinden**, mock değil. `dotnet build`: 0 hata/0 uyarı (Infrastructure'da
+`TreatWarningsAsErrors=true` dahil). `dotnet test`: **53/53 başarılı**
+(48 eski + 5 yeni). Uygulama başlatılıp 8 saniye ayakta kaldığı doğrulandı
+(`Responding=True`) — motor değişikliği açılışı bozmadı (zaten
+BenchmarkViewModel henüz yeni Q/T alanlarını UI'dan ayarlamıyor, madde 7
+bunu ekleyecek; şimdilik hep varsayılan Q1T1 ile çalışıyor).
+
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — bu turda henüz
+UI'dan Q/T değiştirilemiyor (madde 7 bunu ekleyecek), bu yüzden gerçek
+donanımda YÜKSEK queue depth'in gerçekten daha yüksek throughput/IOPS
+ürettiği (asıl motivasyon: "rastgele okuma 38 MB/s gibi gerçek
+potansiyelin çok altında") ancak madde 7 tamamlanınca elle test
+edilebilir. Şimdiden doğrulanabilecek olan (bu ajan oturumunda test
+edildi): motor gerçek dosyalarda hatasız çalışıyor, veri yarışı/çökme yok.
+
+**Değişiklik:** `src/SerkonDiskSuite.Core/Models/BenchmarkModels.cs`,
+`src/SerkonDiskSuite.Infrastructure/Benchmark/DiskBenchmarkRunner.cs`,
+`tests/SerkonDiskSuite.Tests/SerkonDiskSuite.Tests.csproj`,
+`tests/SerkonDiskSuite.Tests/DiskBenchmarkRunnerTests.cs` (yeni)
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak
