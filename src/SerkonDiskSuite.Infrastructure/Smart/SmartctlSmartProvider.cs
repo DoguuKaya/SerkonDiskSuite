@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using SerkonDiskSuite.Core.Interfaces;
 using SerkonDiskSuite.Core.Models;
 using SerkonDiskSuite.Core.Services;
@@ -36,6 +37,8 @@ public sealed class SmartctlSmartProvider : ISmartProvider
         }
     }
 
+    private static readonly Regex ScanLineRegex = new(@"^(\S+)\s+-d\s+(\S+)", RegexOptions.Compiled);
+
     public async Task<SmartHealth> ReadHealthAsync(DiskInfo disk, CancellationToken ct = default)
     {
         // -a: tüm bilgiler, --json=c: sıkıştırılmış JSON
@@ -46,6 +49,19 @@ public sealed class SmartctlSmartProvider : ISmartProvider
         if ((exitCode & 0x02) != 0)
             throw new InvalidOperationException(
                 $"smartctl diski açamadı ({disk.DevicePath}). Yönetici olarak çalıştırdığınızdan emin olun. {stderr}");
+
+        // Bazı NVMe denetleyicilerinde smartctl, Windows'un doğal "\\.\PHYSICALDRIVEn" yolundan
+        // cihaz tipini tanıyamıyor (ör. Kingston SNV2S1000G): exit kodu bunu "device open failed"
+        // olarak işaretlemiyor, JSON geçerli dönüyor ama "device" alanı hiç yok; sonuç olarak
+        // SMART verileri sessizce boş kalıyor. Bu durumda smartctl'in kendi "--scan" çıktısındaki
+        // gerçek cihaz adını/tipini (ör. "/dev/sda -d nvme") kullanıp seri numarasıyla eşleştirerek
+        // yeniden dene.
+        if (!HasDeviceInfo(stdout))
+        {
+            var rescanned = await TryReadViaScanAsync(disk, ct);
+            if (rescanned is not null)
+                stdout = rescanned;
+        }
 
         using var doc = JsonDocument.Parse(stdout);
         var root = doc.RootElement;
@@ -165,6 +181,64 @@ public sealed class SmartctlSmartProvider : ISmartProvider
         }
 
         return list;
+    }
+
+    // ---- Cihaz tespiti fallback (bkz. ReadHealthAsync) ----
+
+    private static bool HasDeviceInfo(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.TryGetProperty("device", out _);
+    }
+
+    /// <summary>
+    /// smartctl'in "--scan" ile bulduğu gerçek cihaz adı/tipini kullanarak SMART verisini
+    /// yeniden okumayı dener. Birden fazla disk taranırsa seri numarasıyla eşleştirme yapılır;
+    /// eşleşme yoksa ve tarama tek bir aday gösteriyorsa (yaygın tek diskli senaryo) o kullanılır,
+    /// aksi halde belirsizlik nedeniyle null döner.
+    /// </summary>
+    private async Task<string?> TryReadViaScanAsync(DiskInfo disk, CancellationToken ct)
+    {
+        var (_, scanOut, _) = await RunAsync(["--scan"], ct);
+
+        var candidates = new List<(string Device, string Type)>();
+        foreach (var line in scanOut.Split('\n'))
+        {
+            var m = ScanLineRegex.Match(line);
+            if (m.Success)
+                candidates.Add((m.Groups[1].Value, m.Groups[2].Value));
+        }
+
+        string? firstValid = null;
+        foreach (var (device, type) in candidates)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var (exit, json, _) = await RunAsync(["-a", "--json=c", "-d", type, device], ct);
+            if ((exit & 0x02) != 0 || !HasDeviceInfo(json))
+                continue;
+
+            if (MatchesDisk(json, disk))
+                return json;
+
+            firstValid ??= json;
+        }
+
+        return candidates.Count == 1 ? firstValid : null;
+    }
+
+    private static bool MatchesDisk(string json, DiskInfo disk)
+    {
+        if (string.IsNullOrWhiteSpace(disk.SerialNumber))
+            return false;
+
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("serial_number", out var sn))
+            return false;
+
+        var serial = sn.GetString()?.Trim();
+        return !string.IsNullOrEmpty(serial)
+            && serial.Equals(disk.SerialNumber.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
     // ---- Süreç çalıştırma ----
