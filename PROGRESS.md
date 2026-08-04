@@ -440,6 +440,38 @@ davranış, artık tek bir yerde).
 `src/SerkonDiskSuite.App/App.xaml.cs`,
 `src/SerkonDiskSuite.App/SerkonDiskSuite.App.csproj`
 
+### 15. BUG: Sıcaklık grafiği görünmüyordu (ÇÖZÜLDÜ — 2026-08-04)
+
+**Kök neden:** `HealthViewModel`'deki `Axis`/`LineSeries` tanımlarında hiçbir
+`Paint` (renk) ayarlanmamıştı. LiveChartsCore'un varsayılan eksen etiketi/
+ayraç (separator) rengi koyu/soluk bir ton; WPF-UI'nin koyu tema zemininde
+(~#202020) bu neredeyse tamamen görünmez oluyor, bu yüzden grafik "ince boş
+bir şerit" gibi görünüyordu (aslında çiziliyordu, sadece görünmez renkte).
+
+**Düzeltme:** `HealthViewModel.cs` — reflection ile doğrulanmış
+(`LiveChartsCore.SkiaSharpView.Axis.LabelsPaint/SeparatorsPaint/NamePaint`,
+`LineSeries<T>.Stroke`) API'ler kullanılarak X/Y eksenlerine açık, okunabilir
+`SolidColorPaint` renkleri (etiket ~#C8C8C8, ayraç ~#55585E) ve seriye mavi
+vurgu rengi (~#60A5FA, kalınlık 2) verildi. `Series`/`Axes` yapıcıda daima
+dolu olduğundan (veri olmasa bile) veri gelmeden de eksenli boş bir çerçeve
+zaten görünüyor olacak; asıl eksik olan renk görünürlüğüydü.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 38/38 başarılı.
+Uygulama başlatılıp 8 saniye ayakta kaldığı doğrulandı (`Responding=True`).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — grafiğin artık
+gerçekten görünür eksenli bir çerçeve + okunabilir etiketlerle çizildiği,
+veri geldikçe mavi çizginin dolduğu gözle kontrol edilmeli.
+
+**Ortam notu (bu turda keşfedildi):** Bu ajan oturumunun kabuğu (Medium
+Integrity) uygulamanın (`app.manifest` `requireAdministrator`) her
+başlattığında sessizce (UAC promptsuz) yönetici hakkına yükseldiğini,
+bu yüzden başlatılan test süreçlerinin bu kabuktan `Stop-Process`/
+`taskkill` ile kapatılamadığını (Erişim engellendi, Windows Mandatory
+Integrity Control) gösterdi. Kullanıcıyla konuşulup her maddeden sonra
+test sürecini kullanıcının elle kapatmasına karar verildi.
+
+**Değişiklik:** `src/SerkonDiskSuite.App/ViewModels/HealthViewModel.cs`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

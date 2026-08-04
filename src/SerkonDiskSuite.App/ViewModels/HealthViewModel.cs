@@ -4,8 +4,10 @@ using CommunityToolkit.Mvvm.Input;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
 using SerkonDiskSuite.Core.Interfaces;
 using SerkonDiskSuite.Core.Models;
+using SkiaSharp;
 
 namespace SerkonDiskSuite.App.ViewModels;
 
@@ -36,6 +38,12 @@ public partial class HealthViewModel : ObservableObject, IDisposable
     /// <summary>LiveCharts'ın arka plan iş parçacığından güvenle güncellenebilmesi için kilit nesnesi.</summary>
     public object ChartSyncObject { get; } = new();
 
+    // Koyu tema zemininde LiveChartsCore'un varsayılan eksen/ayraç renkleri (koyu gri/siyah)
+    // neredeyse görünmez oluyordu; grafik "boş" görünüyordu. Açık, okunabilir tonlar veriliyor.
+    private static readonly SolidColorPaint AxisTextPaint = new(new SKColor(0xC8, 0xC8, 0xC8));
+    private static readonly SolidColorPaint AxisSeparatorPaint = new(new SKColor(0x55, 0x58, 0x5E), 1);
+    private static readonly SolidColorPaint SeriesStrokePaint = new(new SKColor(0x60, 0xA5, 0xFA), 2);
+
     public ISeries[] TemperatureSeries { get; }
 
     public Axis[] TemperatureXAxes { get; } =
@@ -45,10 +53,21 @@ public partial class HealthViewModel : ObservableObject, IDisposable
             Labeler = value => new DateTime((long)value).ToString("HH:mm:ss"),
             UnitWidth = PollInterval.Ticks,
             MinStep = PollInterval.Ticks,
+            LabelsPaint = AxisTextPaint,
+            SeparatorsPaint = AxisSeparatorPaint,
         }
     ];
 
-    public Axis[] TemperatureYAxes { get; } = [new Axis { Name = "°C" }];
+    public Axis[] TemperatureYAxes { get; } =
+    [
+        new Axis
+        {
+            Name = "°C",
+            NamePaint = AxisTextPaint,
+            LabelsPaint = AxisTextPaint,
+            SeparatorsPaint = AxisSeparatorPaint,
+        }
+    ];
 
     public HealthViewModel(ISmartProvider smartProvider, ISmartTrendStore trendStore)
     {
@@ -61,7 +80,9 @@ public partial class HealthViewModel : ObservableObject, IDisposable
                 Values = _temperaturePoints,
                 GeometrySize = 0,
                 LineSmoothness = 0.3,
-                Name = "Sıcaklık"
+                Name = "Sıcaklık",
+                Stroke = SeriesStrokePaint,
+                Fill = null,
             }
         ];
     }
