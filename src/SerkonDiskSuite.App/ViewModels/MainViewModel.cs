@@ -14,10 +14,10 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly IDiskProvider _diskProvider;
     private readonly ISmartProvider _smartProvider;
-    private readonly ISystemInfoProvider _systemInfoProvider;
 
     public HealthViewModel Health { get; }
     public BenchmarkViewModel Benchmark { get; }
+    public SystemViewModel System { get; }
 
     [ObservableProperty]
     private ObservableCollection<DiskInfo> _disks = [];
@@ -25,9 +25,6 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelectedDisk))]
     private DiskInfo? _selectedDisk;
-
-    [ObservableProperty]
-    private SystemSummary? _system;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -40,15 +37,15 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel(
         IDiskProvider diskProvider,
         ISmartProvider smartProvider,
-        ISystemInfoProvider systemInfoProvider,
         HealthViewModel health,
-        BenchmarkViewModel benchmark)
+        BenchmarkViewModel benchmark,
+        SystemViewModel system)
     {
         _diskProvider = diskProvider;
         _smartProvider = smartProvider;
-        _systemInfoProvider = systemInfoProvider;
         Health = health;
         Benchmark = benchmark;
+        System = system;
     }
 
     [RelayCommand]
@@ -58,7 +55,7 @@ public partial class MainViewModel : ObservableObject
         StatusMessage = "Diskler taranıyor...";
         try
         {
-            System = await _systemInfoProvider.GetSummaryAsync();
+            await System.LoadAsync();
 
             var disks = await _diskProvider.GetDisksAsync();
             Disks = new ObservableCollection<DiskInfo>(disks);

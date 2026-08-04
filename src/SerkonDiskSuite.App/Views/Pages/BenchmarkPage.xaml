@@ -1,0 +1,77 @@
+<Page x:Class="SerkonDiskSuite.App.Views.Pages.BenchmarkPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:conv="clr-namespace:SerkonDiskSuite.App.Converters"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:viewModels="clr-namespace:SerkonDiskSuite.App.ViewModels"
+      Title="Benchmark"
+      d:DataContext="{d:DesignInstance Type=viewModels:BenchmarkViewModel}"
+      mc:Ignorable="d">
+
+    <ui:Card Margin="0,0,8,8">
+        <StackPanel>
+            <TextBlock Text="Performans Testi" Style="{StaticResource Heading}" />
+
+            <StackPanel Orientation="Horizontal" Margin="0,8">
+                <TextBlock Text="Hedef sürücü: " VerticalAlignment="Center" />
+                <TextBlock Text="{Binding TargetDrive}" FontWeight="Bold" VerticalAlignment="Center" />
+                <TextBlock Text="   Boyut (GiB): " VerticalAlignment="Center" Margin="16,0,0,0" />
+                <TextBox Text="{Binding TestSizeGiB}" Width="50" VerticalAlignment="Center" />
+                <TextBlock Text="   Geçiş: " VerticalAlignment="Center" Margin="16,0,0,0" />
+                <TextBox Text="{Binding Passes}" Width="40" VerticalAlignment="Center" />
+                <TextBlock Text="   Blok boyutu (rastgele): " VerticalAlignment="Center" Margin="16,0,0,0" />
+                <ComboBox ItemsSource="{Binding BlockSizeOptionsKiB}"
+                          SelectedItem="{Binding RandomBlockSizeKiB}"
+                          Width="90" VerticalAlignment="Center">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock>
+                                <Run Text="{Binding Mode=OneWay}" /><Run Text=" KiB" />
+                            </TextBlock>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,8">
+                <ui:Button Content="Testi Başlat" Appearance="Primary" Command="{Binding StartCommand}" />
+                <ui:Button Content="İptal" Command="{Binding CancelCommand}" Margin="8,0,0,0"
+                           Appearance="Danger"
+                           Visibility="{Binding IsRunning, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
+            </StackPanel>
+
+            <ProgressBar Margin="0,8" Minimum="0" Maximum="100"
+                         IsIndeterminate="{Binding IsRunning}"
+                         Value="{Binding ProgressPercent, Mode=OneWay}" />
+            <TextBlock Text="{Binding ProgressMessage}" Style="{StaticResource Muted}" />
+
+            <!-- Sonuç kartları -->
+            <ItemsControl ItemsSource="{Binding Results}" Margin="0,12,0,0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <ui:Card Margin="0,4">
+                            <Grid>
+                                <TextBlock Text="{Binding Kind}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,12,0"
+                                               Visibility="{Binding Iops, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
+                                        <Run Text="{Binding Iops, StringFormat=N0, Mode=OneWay}" />
+                                        <Run Text=" IOPS" />
+                                    </TextBlock>
+                                    <TextBlock FontSize="18" FontWeight="Bold"
+                                               Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center">
+                                        <Run Text="{Binding ThroughputMBps, StringFormat=N0, Mode=OneWay}" />
+                                        <Run Text=" MB/s" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </ui:Card>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ui:Card>
+</Page>

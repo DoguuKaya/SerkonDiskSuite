@@ -3,6 +3,7 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using SerkonDiskSuite.App.ViewModels;
 using SerkonDiskSuite.App.Views;
+using SerkonDiskSuite.App.Views.Pages;
 using SerkonDiskSuite.Core.Interfaces;
 using SerkonDiskSuite.Infrastructure.Benchmark;
 using SerkonDiskSuite.Infrastructure.Smart;
@@ -45,7 +46,14 @@ public partial class App : Application
         // ViewModel'ler
         services.AddSingleton<HealthViewModel>();
         services.AddSingleton<BenchmarkViewModel>();
+        services.AddSingleton<SystemViewModel>();
         services.AddSingleton<MainViewModel>();
+
+        // NavigationView sayfaları (ui:NavigationViewItem.TargetPageType üzerinden
+        // NavigationView.SetServiceProvider ile DI konteynerinden çözülür)
+        services.AddSingleton<HealthPage>();
+        services.AddSingleton<BenchmarkPage>();
+        services.AddSingleton<SystemPage>();
 
         // Pencereler
         services.AddSingleton<MainWindow>();

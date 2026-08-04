@@ -1,26 +1,25 @@
-using System.Windows;
 using SerkonDiskSuite.App.ViewModels;
+using SerkonDiskSuite.App.Views.Pages;
+using Wpf.Ui.Controls;
 
 namespace SerkonDiskSuite.App.Views;
 
-public partial class MainWindow : Window
+public partial class MainWindow : FluentWindow
 {
     private readonly MainViewModel _viewModel;
 
-    public MainWindow(MainViewModel viewModel)
+    public MainWindow(MainViewModel viewModel, IServiceProvider serviceProvider)
     {
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = _viewModel;
 
+        // NavigationView'ın TargetPageType ile işaretlenmiş sayfaları DI konteynerinden
+        // (yapıcısına ViewModel enjekte edilerek) çözebilmesi için servis sağlayıcıyı bağla.
+        RootNavigation.SetServiceProvider(serviceProvider);
+        RootNavigation.Navigate(typeof(HealthPage), null);
+
         // Pencere yüklenince diskleri tara.
         Loaded += async (_, _) => await _viewModel.LoadCommand.ExecuteAsync(null);
-
-        // Sağlık sekmesi ilk açılışta zaten görünür olabileceğinden (IsVisibleChanged bu durumda
-        // tetiklenmeyebilir), izleme durumunu yüklendiğinde de açıkça senkronize et.
-        HealthTabContent.Loaded += (_, _) => _viewModel.Health.SetMonitoringActive(HealthTabContent.IsVisible);
     }
-
-    private void HealthTabContent_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
-        => _viewModel.Health.SetMonitoringActive((bool)e.NewValue);
 }

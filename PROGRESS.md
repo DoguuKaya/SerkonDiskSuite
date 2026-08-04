@@ -282,11 +282,59 @@ WPF render'ı görülemiyor.
 `dotnet build`: 0 hata (yalnızca LiveCharts2'nin geçişli bağımlılıklarından
 gelen bilinen NU1701 uyarıları, yeni değil). `dotnet test`: 16/16.
 
+### 11. ADIM 2 — Pencere ve yerleşim: FluentWindow + TitleBar + NavigationView (TAMAMLANDI — 2026-08-04)
+
+- `App.xaml`: `ui:ThemesDictionary Theme="Dark"` + `ui:ControlsDictionary`
+  eklendi. `Resources/Theme.xaml` sadeleştirildi — Button/TextBox/ComboBox/
+  ScrollBar/ListBox/ProgressBar/TabControl/"Card" stilleri tamamen
+  kaldırıldı (artık WPF-UI'nin `ui:Button`/`ui:Card` kontrolleri ve
+  implicit `ControlsDictionary` stilleri geçerli). Yalnızca WPF-UI'nin
+  karşılığı OLMAYAN DataGrid stilleri + adlandırılmış `Heading`/`Muted`/
+  `ErrorText` kısayolları kaldı; bunlar da artık WPF-UI'nin kendi
+  `TextFillColorPrimaryBrush`/`TextFillColorSecondaryBrush`/
+  `SystemFillColorCriticalBrush` fırçalarını kullanıyor.
+- `Views/MainWindow.xaml`: `ui:FluentWindow` + `ui:TitleBar` (Mica arka
+  plan, yuvarlak köşe) + `ui:NavigationView` (`PaneDisplayMode="Top"`,
+  3 sayfa: Sağlık/Benchmark/Sistem). Disk listesi + disk detay şeridi
+  `ui:Card` ile, rozetler `AccentFillColorDefaultBrush`/
+  `ControlFillColorDefaultBrush` ile.
+- Yeni `Views/Pages/HealthPage`, `BenchmarkPage`, `SystemPage` (+ yeni
+  `SystemViewModel`, `MainViewModel`'den ayrıştırıldı) — her biri DI
+  singleton, kendi ViewModel'i yapıcıdan enjekte ediliyor.
+  `NavigationView.SetServiceProvider(IServiceProvider)` ile
+  `NavigationViewItem.TargetPageType` DI konteynerinden çözülüyor
+  (`MainWindow.xaml.cs`). **API doğrulama notu:** WPF-UI 4.3.0'ın
+  `NavigationView`/`INavigationViewPageProvider` API yüzeyi resmi
+  dokümantasyonda tutarsız görünüyordu (bazı örnekler eski
+  `IPageService`/`SetPageService`, bazıları yeni
+  `INavigationViewPageProvider` kullanıyordu); tahmin etmek yerine
+  yüklü `Wpf.Ui.dll`/`Wpf.Ui.Abstractions.dll` derlemelerini geçici bir
+  .NET 8 konsol uygulamasıyla reflection'la inceledim ve gerçek üye
+  adlarını (`NavigationView.SetServiceProvider`, `Navigate(Type, object)`,
+  `Wpf.Ui.Abstractions.Controls.INavigationAware`) doğrudan doğruladım.
+- DataGrid `MaxHeight` zaten kaldırılmıştı (önceki oturum); Grid satır
+  yapısı korunuyor (özet kartlar Auto, tablo `*`).
+- **Kontrast doğrulaması** (hesaplanarak, WPF-UI'nin Dark tema metin
+  fırçaları + olası Fluent koyu zemin aralığı #1F1F1F–#2C2C2C için):
+  `TextFillColorPrimaryBrush` (opak beyaz) → 13.97–16.48:1;
+  `TextFillColorSecondaryBrush` (%77 opak beyaz) → 8.96–10.26:1.
+  Kalan özel DataGrid renkleri: beyaz metin/HeaderBg 18.91:1, /RowHover
+  12.69:1, /RowSelected 10.77:1. Hepsi WCAG AA (4.5:1) eşiğinin çok
+  üzerinde.
+
+**Doğrulama:** `dotnet build` (tüm çözüm): 0 hata, yalnızca bilinen 6
+NU1701 (LiveCharts2 geçişli bağımlılık) uyarısı. `dotnet test`: 16/16
+başarılı. **Görsel doğrulama kullanıcı tarafından elle yapılmalı** —
+Mica arka planın gerçekten uygulandığı, NavigationView'ın üstte sekme
+gibi göründüğü, `ui:SymbolIcon` simgelerinin (Heart24/DataHistogram24/
+Desktop24) doğru render edildiği gözle kontrol edilmeli.
+
 ## Devam eden iş
 
-- WPF-UI migrasyonu sürüyor (ADIM 2-5). Disk format/partition özelliğine
-  bu turda da kasıtlı olarak girilmiyor — kullanıcı ayrıca konuşulacağını
-  belirtti.
+- WPF-UI migrasyonu sürüyor (ADIM 3-5: SMART etiket/format mantığını
+  Core'a taşıma + testler, benchmark gerçek ilerleme yüzdesi). Disk
+  format/partition özelliğine bu turda da kasıtlı olarak girilmiyor —
+  kullanıcı ayrıca konuşulacağını belirtti.
 
 ## Sıradaki işler (öncelik sırasına göre)
 
