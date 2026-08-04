@@ -20,6 +20,7 @@
             <conv:SolidStateToStringConverter x:Key="SolidStateToString" />
             <conv:HoursToStringConverter x:Key="HoursToString" />
             <conv:CountToStringConverter x:Key="CountToString" />
+            <conv:NumberToStringConverter x:Key="NumberToString" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

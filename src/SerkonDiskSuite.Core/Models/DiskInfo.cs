@@ -1,3 +1,5 @@
+using SerkonDiskSuite.Core.Formatting;
+
 namespace SerkonDiskSuite.Core.Models;
 
 /// <summary>
@@ -33,23 +35,10 @@ public sealed class DiskInfo
     /// <summary>Bu diskin bağlı olduğu sürücü harfleri (ör. ["C:", "Q:"]).</summary>
     public IReadOnlyList<string> DriveLetters { get; init; } = [];
 
-    /// <summary>Kapasitenin okunabilir gösterimi (ör. "2.00 TB").</summary>
-    public string CapacityDisplay => FormatBytes(CapacityBytes);
+    /// <summary>Kapasitenin okunabilir gösterimi (tr-TR, ör. "2,00 TB").</summary>
+    public string CapacityDisplay => DisplayFormatting.FormatBytes(CapacityBytes);
 
     public bool IsSolidState => RotationRate is null or 0;
-
-    private static string FormatBytes(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
-        double size = bytes;
-        int unit = 0;
-        while (size >= 1024 && unit < units.Length - 1)
-        {
-            size /= 1024;
-            unit++;
-        }
-        return $"{size:0.##} {units[unit]}";
-    }
 }
 
 public enum DiskBusType

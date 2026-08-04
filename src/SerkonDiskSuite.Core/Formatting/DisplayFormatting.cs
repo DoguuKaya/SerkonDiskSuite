@@ -27,4 +27,13 @@ public static class DisplayFormatting
 
     /// <summary>Tam sayıyı binlik ayraçla biçimlendirir (ör. "12.345").</summary>
     public static string FormatCount(long value) => value.ToString("N0", Turkish);
+
+    /// <summary>
+    /// Ondalıklı bir değeri tr-TR binlik/ondalık ayraçlarıyla biçimlendirir (ör. "1.771",
+    /// "25.806"). WPF'in XAML `StringFormat=N0` gibi kısayolları her zaman en-US kültürüne
+    /// düştüğü için (ör. "1,771"), throughput/IOPS gibi tüm sayısal gösterimler bu metot
+    /// üzerinden geçmelidir.
+    /// </summary>
+    public static string FormatNumber(double value, int decimals = 0)
+        => value.ToString("N" + decimals, Turkish);
 }

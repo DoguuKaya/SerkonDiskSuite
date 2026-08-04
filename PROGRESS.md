@@ -472,6 +472,47 @@ test sürecini kullanıcının elle kapatmasına karar verildi.
 
 **Değişiklik:** `src/SerkonDiskSuite.App/ViewModels/HealthViewModel.cs`
 
+### 16. BUG: Sayı biçimlendirmesi en-US kültürüne düşüyordu (ÇÖZÜLDÜ — 2026-08-04)
+
+**Kök neden:** XAML `StringFormat=N0` (WPF'in varsayılan `Binding.ConverterCulture`
+davranışı) `FrameworkElement.Language`'a göre biçimlendirir; bu özellik
+uygulamada hiç ayarlanmadığından WPF'in kendi varsayılanı olan `en-US`'a
+düşüyordu ("1.771 MB/s" yerine "1,771 MB/s", "25.806 IOPS" yerine
+"25,806 IOPS"). Ayrıca `DiskInfo.CapacityDisplay` kendi özel `FormatBytes`
+metodunu (`$"{size:0.##}"`, kültüre bağlı ama açıkça tr-TR zorlamıyordu)
+kullanıyordu — `Core/Formatting/DisplayFormatting`'in tr-TR biçimlendiricisiyle
+tutarsız, ayrıca kod tekrarıydı.
+
+**Düzeltme:**
+- `Core/Formatting/DisplayFormatting.cs` — genel amaçlı `FormatNumber(double,
+  int decimals = 0)` eklendi (tr-TR binlik/ondalık ayraç).
+- `App/Converters/Converters.cs` — yeni `NumberToStringConverter`
+  (`{StaticResource NumberToString}`, App.xaml'e kaydedildi).
+- `BenchmarkPage.xaml` — `Iops`/`ThroughputMBps` için `StringFormat=N0`
+  yerine `Converter={StaticResource NumberToString}`.
+- `Core/Models/DiskInfo.cs` — `CapacityDisplay` artık kendi özel
+  `FormatBytes`'ı yerine `DisplayFormatting.FormatBytes` kullanıyor (kod
+  tekrarı kaldırıldı, tr-TR garanti).
+- Uygulamadaki diğer tüm sayısal gösterimler tarandı: SMART kartları/tablo
+  zaten `DisplayFormatting`/`SmartAttributeValueFormatter` üzerinden geçiyor
+  (önceki oturumda taşınmıştı); düz `{Binding}` ile gösterilen küçük tam
+  sayılar (sıcaklık, yüzde, açılma sayısı vb.) format dizgesi kullanmadığı
+  için binlik ayraç sorunu yaşamıyor — başka StringFormat kullanan yer yok.
+
+**Doğrulama:** `DisplayFormattingTests`'e `FormatNumber` için 6 yeni test
+eklendi (binlik ayraç + ondalık virgül). `dotnet build`: 0 hata/0 uyarı.
+`dotnet test`: **44/44 başarılı** (38 eski + 6 yeni). Uygulama başlatılıp
+8 saniye ayakta kaldığı doğrulandı (`Responding=True`).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — gerçek bir
+benchmark çalıştırıp IOPS/throughput değerlerinin "1.771 MB/s" gibi
+tr-TR biçiminde göründüğünü gözle kontrol edin.
+
+**Değişiklik:** `src/SerkonDiskSuite.Core/Formatting/DisplayFormatting.cs`,
+`src/SerkonDiskSuite.Core/Models/DiskInfo.cs`,
+`src/SerkonDiskSuite.App/Converters/Converters.cs`, `App.xaml`,
+`Views/Pages/BenchmarkPage.xaml`,
+`tests/SerkonDiskSuite.Tests/DisplayFormattingTests.cs`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

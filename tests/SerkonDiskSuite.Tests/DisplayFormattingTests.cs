@@ -30,4 +30,22 @@ public class DisplayFormattingTests
     {
         Assert.Equal(expected, DisplayFormatting.FormatCount(value));
     }
+
+    [Theory]
+    [InlineData(0d, "0")]
+    [InlineData(1771d, "1.771")]
+    [InlineData(25806d, "25.806")]
+    [InlineData(1234567d, "1.234.567")]
+    public void FormatNumber_UsesTurkishThousandsSeparator_NotEnUsComma(double value, string expected)
+    {
+        Assert.Equal(expected, DisplayFormatting.FormatNumber(value));
+    }
+
+    [Theory]
+    [InlineData(1234.5, 1, "1.234,5")]
+    [InlineData(0.1234, 2, "0,12")]
+    public void FormatNumber_WithDecimals_UsesTurkishDecimalComma(double value, int decimals, string expected)
+    {
+        Assert.Equal(expected, DisplayFormatting.FormatNumber(value, decimals));
+    }
 }

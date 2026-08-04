@@ -57,12 +57,12 @@
                                     <TextBlock FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                VerticalAlignment="Center" Margin="0,0,12,0"
                                                Visibility="{Binding Iops, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
-                                        <Run Text="{Binding Iops, StringFormat=N0, Mode=OneWay}" />
+                                        <Run Text="{Binding Iops, Converter={StaticResource NumberToString}, Mode=OneWay}" />
                                         <Run Text=" IOPS" />
                                     </TextBlock>
                                     <TextBlock FontSize="18" FontWeight="Bold"
                                                Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center">
-                                        <Run Text="{Binding ThroughputMBps, StringFormat=N0, Mode=OneWay}" />
+                                        <Run Text="{Binding ThroughputMBps, Converter={StaticResource NumberToString}, Mode=OneWay}" />
                                         <Run Text=" MB/s" />
                                     </TextBlock>
                                 </StackPanel>

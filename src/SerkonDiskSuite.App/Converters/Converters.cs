@@ -108,3 +108,21 @@ public sealed class CountToStringConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>
+/// Ondalıklı sayı (double/double?) -> tr-TR binlik ayraçlı dizge (ör. "25.806").
+/// XAML `StringFormat=N0` her zaman en-US kültürüne düştüğü için (ör. yanlışlıkla
+/// "25,806") throughput/IOPS gibi tüm sayısal gösterimlerde bunun yerine kullanılır.
+/// </summary>
+public sealed class NumberToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value switch
+        {
+            double d => DisplayFormatting.FormatNumber(d),
+            _ => "-"
+        };
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
