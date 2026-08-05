@@ -1,8 +1,12 @@
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
 using SerkonDiskSuite.Core.Interfaces;
 using SerkonDiskSuite.Core.Models;
+using SerkonDiskSuite.Core.Reporting;
 
 namespace SerkonDiskSuite.App.ViewModels;
 
@@ -25,6 +29,8 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelectedDisk))]
+    [NotifyCanExecuteChangedFor(nameof(ExportReportCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CopyReportToClipboardCommand))]
     private DiskInfo? _selectedDisk;
 
     [ObservableProperty]
@@ -84,5 +90,57 @@ public partial class MainViewModel : ObservableObject
         Health.SetDisk(value);
         Benchmark.SetDisk(value);
         Diagnostics.SetDisk(value);
+    }
+
+    private bool CanExportOrCopyReport => SelectedDisk is not null;
+
+    /// <summary>Seçili diskin SMART verisi + son benchmark sonuçlarını hem düz metin (.txt)
+    /// hem JSON (.json) olarak, kullanıcının seçtiği konuma kaydeder.</summary>
+    [RelayCommand(CanExecute = nameof(CanExportOrCopyReport))]
+    private void ExportReport()
+    {
+        if (SelectedDisk is not { } disk) return;
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Rapor Dışa Aktar",
+            Filter = "Metin dosyası (*.txt)|*.txt",
+            FileName = $"{disk.ModelName}_{DateTime.Now:yyyyMMdd_HHmmss}.txt",
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            string txtPath = dialog.FileName;
+            string jsonPath = Path.ChangeExtension(txtPath, ".json");
+
+            var results = Benchmark.Results.ToList();
+            File.WriteAllText(txtPath, DiskReportBuilder.BuildPlainText(disk, Health.Health, results));
+            File.WriteAllText(jsonPath, DiskReportBuilder.BuildJson(disk, Health.Health, results));
+
+            StatusMessage = $"Rapor kaydedildi: {txtPath} / {Path.GetFileName(jsonPath)}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Rapor kaydedilemedi: {ex.Message}";
+        }
+    }
+
+    /// <summary>CrystalDiskInfo tarzı düz metin özetini panoya kopyalar.</summary>
+    [RelayCommand(CanExecute = nameof(CanExportOrCopyReport))]
+    private void CopyReportToClipboard()
+    {
+        if (SelectedDisk is not { } disk) return;
+
+        try
+        {
+            string text = DiskReportBuilder.BuildPlainText(disk, Health.Health, Benchmark.Results.ToList());
+            Clipboard.SetText(text);
+            StatusMessage = "Rapor panoya kopyalandı.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Panoya kopyalanamadı: {ex.Message}";
+        }
     }
 }

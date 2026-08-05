@@ -129,7 +129,15 @@
 
         <!-- Alt durum çubuğu -->
         <ui:Card Grid.Row="3" Margin="8,0,8,8" Padding="12,6">
-            <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Muted}" />
+            <Grid>
+                <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Muted}" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <ui:Button Content="Panoya Kopyala" Appearance="Secondary"
+                               Command="{Binding CopyReportToClipboardCommand}" Margin="0,0,8,0" />
+                    <ui:Button Content="Rapor Dışa Aktar" Appearance="Secondary"
+                               Command="{Binding ExportReportCommand}" />
+                </StackPanel>
+            </Grid>
         </ui:Card>
     </Grid>
 </ui:FluentWindow>

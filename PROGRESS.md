@@ -909,6 +909,50 @@ kontrol edilmeli.
 `src/SerkonDiskSuite.App/ViewModels/HealthViewModel.cs`,
 `Views/Pages/HealthPage.xaml`
 
+### 27. ÖZELLİK: Rapor dışa aktarma (TAMAMLANDI — 2026-08-05)
+
+`Core/Reporting/DiskReportBuilder.cs` (yeni): seçili diskin bilgisi +
+SMART sağlığı (null olabilir) + son benchmark sonuçlarından iki çıktı
+üretir:
+- `BuildPlainText`: CrystalDiskInfo tarzı düz metin (disk bilgisi, SMART
+  özeti + kritik uyarılar + tüm öznitelikler Türkçe etiketleriyle, son
+  benchmark sonuçları Türkçe test adı + profil adıyla).
+- `BuildJson`: aynı verinin girintili JSON'u (`GeneratedAt`/`Disk`/
+  `Health`/`BenchmarkResults`).
+
+`MainViewModel`'e iki komut eklendi:
+- `ExportReportCommand`: `SaveFileDialog` ile kullanıcıdan bir .txt yolu
+  ister, hem `<ad>.txt` hem `<ad>.json`'ı aynı anda yazar.
+- `CopyReportToClipboardCommand`: düz metin özetini panoya kopyalar
+  (`Clipboard.SetText`).
+
+İkisi de seçili disk yokken devre dışı (`CanExportOrCopyReport`).
+`MainWindow.xaml`'in alt durum çubuğuna "Panoya Kopyala"/"Rapor Dışa
+Aktar" butonları eklendi.
+
+**Doğrulama:** `DiskReportBuilderTests` — 5 test (model/seri no içeriyor,
+SMART + kritik uyarı + Türkçe öznitelik etiketi içeriyor, Türkçe test
+adı + profil adı içeriyor, health/sonuç yokken hata vermiyor, JSON
+geçerli ve üç ana alanı içeriyor). `dotnet build`: 0 hata/0 uyarı.
+`dotnet test`: **66/66 başarılı** (61 eski + 5 yeni). Uygulama
+başlatılıp 8 saniye ayakta kaldığı doğrulandı (`Responding=True`).
+
+**Ortam notu:** Bu maddede de canlı test sırasında bir kez gerçek UAC
+izin penceresi çıktı ve ilk denemede iptal oldu (madde 11'deki gibi);
+kullanıcı onaylayınca ikinci deneme başarılı oldu. Bu ortamda yükseltme
+davranışı tutarsız — bazen sessiz otomatik yükseliyor, bazen gerçek
+UAC promptu çıkarıp iptal olabiliyor.
+
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — "Rapor Dışa
+Aktar" ile gerçekten hem .txt hem .json dosyasının doğru içerikle
+oluştuğu, "Panoya Kopyala" ile panoya yapıştırılan metnin doğru olduğu
+gözle kontrol edilmeli.
+
+**Değişiklik:** `src/SerkonDiskSuite.Core/Reporting/DiskReportBuilder.cs`
+(yeni), `src/SerkonDiskSuite.App/ViewModels/MainViewModel.cs`,
+`Views/MainWindow.xaml`,
+`tests/SerkonDiskSuite.Tests/DiskReportBuilderTests.cs` (yeni)
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak
