@@ -94,6 +94,38 @@
         <Setter Property="JournalOwnership" Value="OwnsJournal" />
     </Style>
 
+    <!--
+        GERÇEK KÖK NEDEN (madde 32, PROGRESS.md'de detaylı — bir geçici
+        VisualTreeHelper dökümüyle DOĞRUDAN doğrulandı, tahmin edilmedi):
+        ui:Card'ın kendi varsayılan stili VerticalAlignment="Center" kullanır
+        (dökümde HER Card örneğinde tutarlı şekilde görüldü). Bu, iki farklı
+        semptomun TEK kök nedeni:
+          1) Yerleşim: bir Card (ör. MainWindow'daki disk listesi Card'ı,
+             veya her sayfanın kök Card'ı) kendi doğal içerik boyutuna
+             küçülüp ayrılan alan içinde dikeyde ORTALANIYOR (üstte/altta
+             boşluk) — Card'ın kendisi Stretch OLMADIĞI için "*" satırlar/
+             kalan alan asla dolmuyor.
+          2) Grafikler: Card'a Height="160" verilse de, Card'ın kendi iç
+             şablonundaki ContentBorder/ContentPresenter da VerticalAlignment
+             miras aldığından (Center) içeriğe göre boyutlanıyor (dökümde
+             ContentBorder H=18 ölçüldü, Card'ın kendisi H=160 olsa da).
+             İçinde barındırılan CartesianChart'ın (metin gibi doğal bir
+             "içerik boyutu" olmadığından) stretch edilmediğinde ölçülecek
+             hiçbir referansı kalmıyor ve H=0'a çöküyor — "ince şerit" görüntüsü.
+        Düzeltme: madde 30'un dersiyle (BasedOn'suz Style = kütüphane
+        varsayılanını tamamen ezer) BasedOn ile Card'ın TÜM VerticalAlignment/
+        VerticalContentAlignment'ını Stretch'e çeviriyoruz — Template ve diğer
+        tüm Setter'lar korunuyor. Küçük özet kartları (UniformGrid içindeki
+        sağlık kutuları, benchmark sonuç kartları vb.) StackPanel/UniformGrid
+        içinde olduğundan bu değişiklikten etkilenmiyor (o panel türleri
+        çocuğun VerticalAlignment'ından bağımsız olarak doğal/sabit boyut
+        veriyor).
+    -->
+    <Style TargetType="{x:Type ui:Card}" BasedOn="{StaticResource {x:Type ui:Card}}">
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    </Style>
+
     <!-- ================= DataGrid ================= -->
     <Style TargetType="DataGrid">
         <Setter Property="Background" Value="Transparent" />

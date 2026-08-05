@@ -58,7 +58,7 @@ public class SmartctlSelfTestParsingTests
     }
 
     [Fact]
-    public void ParseSelfTestStatus_MissingField_ReturnsAllNullNotRunning()
+    public void ParseSelfTestStatus_MissingField_ReturnsExplicitNotReportedMessage()
     {
         using var doc = JsonDocument.Parse("""{ "device": { "type": "nvme" } }""");
 
@@ -66,7 +66,71 @@ public class SmartctlSelfTestParsingTests
 
         Assert.False(status.IsRunning);
         Assert.Null(status.PercentRemaining);
-        Assert.Null(status.StatusDescription);
+        Assert.Equal("Bu disk self-test durumu raporlamıyor.", status.StatusDescription);
+        Assert.Null(status.Passed);
+    }
+
+    // ---- NVMe: gerçek bir KINGSTON SNV2S1000G üzerinde `smartctl -a --json=c` ile
+    // yakalanan `nvme_self_test_log` şeması (madde 32, PROGRESS.md'de belgelendi). ----
+
+    [Fact]
+    public void ParseSelfTestStatus_Nvme_NotRunningWithHistory_ReturnsLastResult()
+    {
+        using var doc = JsonDocument.Parse("""
+            { "nvme_self_test_log": {
+                "nsid": -1,
+                "current_self_test_operation": { "value": 0, "string": "No self-test in progress" },
+                "table": [
+                    { "self_test_code": { "value": 1, "string": "Short" },
+                      "self_test_result": { "value": 0, "string": "Completed without error" },
+                      "power_on_hours": 1069 }
+                ]
+            } }
+            """);
+
+        var status = SmartctlSmartProvider.ParseSelfTestStatus(doc.RootElement);
+
+        Assert.False(status.IsRunning);
+        Assert.Null(status.PercentRemaining);
+        Assert.Equal("Short: Completed without error", status.StatusDescription);
+        Assert.True(status.Passed);
+    }
+
+    [Fact]
+    public void ParseSelfTestStatus_Nvme_CurrentOperationRunning_ReturnsRunningWithoutPercent()
+    {
+        using var doc = JsonDocument.Parse("""
+            { "nvme_self_test_log": {
+                "nsid": -1,
+                "current_self_test_operation": { "value": 1, "string": "Short self-test in progress" },
+                "table": []
+            } }
+            """);
+
+        var status = SmartctlSmartProvider.ParseSelfTestStatus(doc.RootElement);
+
+        Assert.True(status.IsRunning);
+        // NVMe'de çalışırkenki kalan yüzde alan adı doğrulanamadı; tahmin edilmedi, null kalır.
+        Assert.Null(status.PercentRemaining);
+        Assert.Equal("Short self-test in progress", status.StatusDescription);
+        Assert.Null(status.Passed);
+    }
+
+    [Fact]
+    public void ParseSelfTestStatus_Nvme_NoHistoryYet_ReturnsExplicitNoRecordMessage()
+    {
+        using var doc = JsonDocument.Parse("""
+            { "nvme_self_test_log": {
+                "nsid": -1,
+                "current_self_test_operation": { "value": 0, "string": "No self-test in progress" },
+                "table": []
+            } }
+            """);
+
+        var status = SmartctlSmartProvider.ParseSelfTestStatus(doc.RootElement);
+
+        Assert.False(status.IsRunning);
+        Assert.Equal("Bu disk için self-test kaydı yok.", status.StatusDescription);
         Assert.Null(status.Passed);
     }
 }

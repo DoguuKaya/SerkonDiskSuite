@@ -31,14 +31,14 @@ public partial class BenchmarkViewModel : ObservableObject
     [ObservableProperty] private int _testSizeGiB = 1;
     [ObservableProperty] private int _passes = 3;
     [ObservableProperty] private int _randomBlockSizeKiB = 4;
-    [ObservableProperty] private BenchmarkProfile? _selectedProfile;
+    [ObservableProperty] private BenchmarkProfile _selectedProfile = BenchmarkProfiles.Custom;
 
     /// <summary>Rastgele okuma/yazma testlerinde seçilebilecek blok boyutları (KiB).</summary>
     public IReadOnlyList<int> BlockSizeOptionsKiB { get; } = [4, 8, 16, 32, 64, 128, 256, 512, 1024];
 
-    /// <summary>Hazır CrystalDiskMark profilleri (ör. "SEQ1M Q8T1"). Seçilmezse manuel/"Özel"
-    /// ayarlar (TestSizeGiB, Passes, RandomBlockSizeKiB) kullanılır.</summary>
-    public IReadOnlyList<BenchmarkProfile> Profiles { get; } = BenchmarkProfiles.All;
+    /// <summary>Hazır CrystalDiskMark profilleri + başta "Özel" (manuel ayarlar) seçeneği —
+    /// ComboBox'ın boş başlamaması için varsayılan olarak "Özel" seçili gelir.</summary>
+    public IReadOnlyList<BenchmarkProfile> Profiles { get; } = [BenchmarkProfiles.Custom, .. BenchmarkProfiles.All];
 
     public BenchmarkViewModel(IBenchmarkRunner runner) => _runner = runner;
 
@@ -78,9 +78,9 @@ public partial class BenchmarkViewModel : ObservableObject
             Passes = Passes,
             RandomBlockSize = RandomBlockSizeKiB * 1024
         };
-        if (SelectedProfile is { } profile)
+        if (!ReferenceEquals(SelectedProfile, BenchmarkProfiles.Custom))
         {
-            options = BenchmarkProfiles.Apply(options, profile);
+            options = BenchmarkProfiles.Apply(options, SelectedProfile);
         }
 
         var progress = new Progress<BenchmarkProgress>(p =>

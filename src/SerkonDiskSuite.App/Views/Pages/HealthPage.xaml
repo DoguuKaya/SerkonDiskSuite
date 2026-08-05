@@ -142,9 +142,16 @@
             <!-- Öznitelik tablosu -->
             <TextBlock Grid.Row="6" Text="SMART Öznitelikleri" Style="{StaticResource Heading}" Margin="0,12,0,4" />
             <DataGrid Grid.Row="7" ItemsSource="{Binding Attributes}">
+                <DataGrid.Resources>
+                    <!-- DataGridColumn görsel ağaçta olmadığından ElementName ile Page'in
+                         DataContext'ine ulaşılamıyor; standart çözüm bir FrameworkElement
+                         proxy'dir: DataContext'i {Binding} ile (DataGrid'in kendi, miras
+                         alınan DataContext'ine) bağlanır, kolonlar buna Source olarak bakar. -->
+                    <FrameworkElement x:Key="ProxyElement" DataContext="{Binding}" />
+                </DataGrid.Resources>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"
-                                         Visibility="{Binding DataContext.IsIdColumnVisible, ElementName=Root, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
+                                         Visibility="{Binding DataContext.IsIdColumnVisible, Source={StaticResource ProxyElement}, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
                     <DataGridTextColumn Header="Öznitelik" Width="*"
                                          Binding="{Binding Converter={StaticResource SmartAttributeName}}">
                         <DataGridTextColumn.ElementStyle>

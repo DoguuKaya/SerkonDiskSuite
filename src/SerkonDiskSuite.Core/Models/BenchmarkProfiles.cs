@@ -10,6 +10,11 @@ public sealed record BenchmarkProfile(string Name, bool IsRandom, int BlockSize,
 /// </summary>
 public static class BenchmarkProfiles
 {
+    /// <summary>"Özel" (manuel ayarlar) seçeneği — profil ComboBox'ında varsayılan olarak
+    /// seçili görünür; <see cref="Apply"/>'a hiç verilmemeli (bir no-op'tur, sadece UI'da
+    /// ComboBox'ın boş başlamasını önlemek için var).</summary>
+    public static readonly BenchmarkProfile Custom = new("Özel", IsRandom: false, BlockSize: 0, QueueDepth: 0, ThreadCount: 0);
+
     public static readonly BenchmarkProfile Seq1MQ8T1 = new("SEQ1M Q8T1", IsRandom: false, BlockSize: 1024 * 1024, QueueDepth: 8, ThreadCount: 1);
     public static readonly BenchmarkProfile Seq1MQ1T1 = new("SEQ1M Q1T1", IsRandom: false, BlockSize: 1024 * 1024, QueueDepth: 1, ThreadCount: 1);
     public static readonly BenchmarkProfile Rnd4KQ32T16 = new("RND4K Q32T16", IsRandom: true, BlockSize: 4 * 1024, QueueDepth: 32, ThreadCount: 16);

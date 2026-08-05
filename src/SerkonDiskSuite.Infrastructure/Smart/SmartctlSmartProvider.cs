@@ -113,29 +113,74 @@ public sealed class SmartctlSmartProvider : ISmartProvider
     }
 
     /// <summary>
-    /// smartctl'in `ata_smart_data.self_test.status` alanını (value/string/remaining_percent)
-    /// ayrıştırır. Yalnızca ATA/SATA disklerde bu alan var; NVMe'de smartctl sürümüne göre
-    /// farklı/eksik olabileceğinden bulunamazsa güvenle "bilgi yok" (hepsi null/false) döner
-    /// — tahmini bir NVMe alan adı kullanılmıyor.
+    /// smartctl'in self-test durumunu ayrıştırır. ATA/SATA'da `ata_smart_data.self_test.status`
+    /// (value/string/remaining_percent). NVMe'de gerçek bir KINGSTON SNV2S1000G üzerinde
+    /// `smartctl -a --json=c` ile doğrulanan şema kullanılır:
+    /// `nvme_self_test_log.current_self_test_operation.{value,string}` (value=0 -> test
+    /// çalışmıyor) ve geçmiş sonuçlar için `nvme_self_test_log.table[]` (en yeni kayıt ilk
+    /// sırada) - her kayıtta `self_test_code.{value,string}` (ör. "Short"),
+    /// `self_test_result.{value,string}` (value=0 -> "Completed without error"),
+    /// `power_on_hours`. NVMe'de test ÇALIŞIRKEN kalan yüzdeyi taşıyan alan adı bu makinede
+    /// hiç doğrulanamadı (test tetiklenmedi, saatler sürebilir) — bu yüzden NVMe için
+    /// PercentRemaining her zaman null döner; tahmini bir alan adı kullanılmadı.
+    /// Ne ATA ne NVMe self-test verisi bulunamazsa (disk gerçekten desteklemiyor olabilir),
+    /// arayüzde boş bırakmak yerine bunu açıkça belirten bir mesaj döner.
     /// </summary>
     public static SelfTestStatus ParseSelfTestStatus(JsonElement root)
     {
-        if (!root.TryGetProperty("ata_smart_data", out var data)
-            || !data.TryGetProperty("self_test", out var selfTest)
-            || !selfTest.TryGetProperty("status", out var status))
+        if (root.TryGetProperty("ata_smart_data", out var data)
+            && data.TryGetProperty("self_test", out var ataSelfTest)
+            && ataSelfTest.TryGetProperty("status", out var ataStatus))
         {
-            return new SelfTestStatus(IsRunning: false, PercentRemaining: null, StatusDescription: null, Passed: null);
+            string? description = ataStatus.TryGetProperty("string", out var s) ? s.GetString() : null;
+            int? remaining = ataStatus.TryGetProperty("remaining_percent", out var r) ? r.GetInt32() : null;
+            bool isRunning = remaining is not null
+                || (description?.Contains("in progress", StringComparison.OrdinalIgnoreCase) ?? false);
+            bool? passed = !isRunning && description is not null
+                ? description.Contains("without error", StringComparison.OrdinalIgnoreCase)
+                : null;
+
+            return new SelfTestStatus(isRunning, remaining, description, passed);
         }
 
-        string? description = status.TryGetProperty("string", out var s) ? s.GetString() : null;
-        int? remaining = status.TryGetProperty("remaining_percent", out var r) ? r.GetInt32() : null;
-        bool isRunning = remaining is not null
-            || (description?.Contains("in progress", StringComparison.OrdinalIgnoreCase) ?? false);
-        bool? passed = !isRunning && description is not null
-            ? description.Contains("without error", StringComparison.OrdinalIgnoreCase)
-            : null;
+        if (root.TryGetProperty("nvme_self_test_log", out var nvmeLog))
+        {
+            bool isRunning = false;
+            string? runningDescription = null;
+            if (nvmeLog.TryGetProperty("current_self_test_operation", out var current)
+                && current.TryGetProperty("value", out var opValue))
+            {
+                isRunning = opValue.GetInt32() != 0;
+                runningDescription = current.TryGetProperty("string", out var opString) ? opString.GetString() : null;
+            }
 
-        return new SelfTestStatus(isRunning, remaining, description, passed);
+            if (isRunning)
+                return new SelfTestStatus(true, PercentRemaining: null, runningDescription, Passed: null);
+
+            if (nvmeLog.TryGetProperty("table", out var table)
+                && table.ValueKind == JsonValueKind.Array
+                && table.GetArrayLength() > 0)
+            {
+                var last = table[0];
+                string? testType = last.TryGetProperty("self_test_code", out var code)
+                    && code.TryGetProperty("string", out var codeStr) ? codeStr.GetString() : null;
+                string? result = last.TryGetProperty("self_test_result", out var res)
+                    && res.TryGetProperty("string", out var resStr) ? resStr.GetString() : null;
+                bool? passed = last.TryGetProperty("self_test_result", out var res2)
+                    && res2.TryGetProperty("value", out var resVal) ? resVal.GetInt32() == 0 : null;
+
+                string? description = testType is not null && result is not null
+                    ? $"{testType}: {result}"
+                    : result ?? runningDescription;
+
+                return new SelfTestStatus(false, PercentRemaining: null, description, passed);
+            }
+
+            return new SelfTestStatus(false, null, "Bu disk için self-test kaydı yok.", null);
+        }
+
+        return new SelfTestStatus(IsRunning: false, PercentRemaining: null,
+            StatusDescription: "Bu disk self-test durumu raporlamıyor.", Passed: null);
     }
 
     // ---- JSON ayrıştırma yardımcıları (smartctl şeması) ----
@@ -231,6 +276,14 @@ public sealed class SmartctlSmartProvider : ISmartProvider
                     // nsid (ad alanı no) -1 ise bu diskte/ortamda anlamsızdır; satırı hiç ekleme.
                     if (prop.Name.Equals("nsid", StringComparison.OrdinalIgnoreCase)
                         && prop.Value.TryGetInt64(out long nsid) && nsid == -1)
+                    {
+                        continue;
+                    }
+
+                    // critical_warning=0 uyarı yok demektir; bu bilgi zaten Teşhis sayfasında
+                    // (CriticalWarningFlags) ayrıntılı gösteriliyor, tabloda gürültü yapmasın.
+                    if (prop.Name.Equals("critical_warning", StringComparison.OrdinalIgnoreCase)
+                        && prop.Value.TryGetInt64(out long warning) && warning == 0)
                     {
                         continue;
                     }

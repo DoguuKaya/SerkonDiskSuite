@@ -1114,6 +1114,194 @@ Setter'ları) sessizce siler.
 
 **Değişiklik:** `src/SerkonDiskSuite.App/Resources/Theme.xaml`
 
+### 32. BUG: Yerleşim ortalama + grafiklerin sıfır yükseklikte çökmesi — GERÇEK kök neden (ÇÖZÜLDÜ — 2026-08-05)
+
+Kullanıcı madde 30'un düzeltmesinden SONRA da her sayfada içeriğin dikeyde
+ortalandığını, MainWindow'un disk listesi panelinin de aynı sorunu
+yaşadığını (yani sorunun NavigationView'a özel olmadığını) ve
+grafiklerin `Height="160"` verilse de ~15px'lik ince şerit halinde
+kaldığını bildirdi. Bu turda TAHMİN EDİLMEDİ: `MainWindow.xaml.cs`'e
+geçici bir teşhis kodu eklendi (Loaded'da görsel ağacı kökten aşağı
+dolaşıp her elemanın tipi + gerçek W/H + MinHeight + Horizontal/
+VerticalAlignment'ını `%LOCALAPPDATA%\SerkonDiskSuite\logs\visualtree.txt`'e
+yazan `DumpVisualTreeDiagnostics`/`DumpElement`).
+
+**Ortam kısıtı nedeniyle bulunan çözüm:** Önceki oturumdan kalan
+yükseltilmiş süreç (PID 35928) hâlâ kapatılamadığından gerçek
+`bin\...\win-x64\` çıktısı kilitliydi. `dotnet build ... -o <geçici
+klasör>` ile projeyi tekrarlanan (run_diag1/2/3) geçici, kilitsiz
+çıktı klasörlerine derleyip oradan çalıştırarak devam edildi — bu,
+orijinal kilitli süreci kapatmaya gerek kalmadan build+launch+doğrulama
+döngüsünü sürdürmeyi sağladı.
+
+**Gerçek kök neden (döküm dosyasından doğrudan okundu):** `ui:Card`'ın
+kendi varsayılan stili `VerticalAlignment="Center"` kullanıyor — dökümde
+HER `Card` örneğinde tutarlı şekilde görüldü (ör. disk listesi Card'ı
+`H=227,0` iken ayrıldığı alan `H=601,0`; grafik Card'ları `H=160,0`
+olsa da içteki `ContentBorder` yalnızca `H=18,0`, `CartesianChart` ise
+tam `H=0,0`). Bu TEK kök neden iki farklı semptomu açıklıyor:
+1. **Yerleşim:** Card kendi doğal içerik boyutuna küçülüp ayrılan alan
+   içinde dikeyde ortalanıyor (Stretch olmadığı için "*" satırlar/kalan
+   alan asla dolmuyor) — hem MainWindow'un disk listesi Card'ında hem
+   her sayfanın kök Card'ında.
+2. **Grafikler:** Card'a `Height="160"` verilse de Card'ın kendi iç
+   şablonundaki `ContentBorder`/`ContentPresenter` da `VerticalAlignment`
+   miras aldığından içeriğe göre boyutlanıyor. `CartesianChart`'ın
+   (metin gibi doğal bir "içerik boyutu" olmadığından) stretch
+   edilmediğinde ölçülecek referansı kalmıyor ve `H=0`'a çöküyor.
+
+**Düzeltme:** Madde 30'un dersiyle (`BasedOn` olmadan tanımlanan bir
+`TargetType` Style, kütüphanenin implicit stilini TAMAMEN ezer)
+`Resources/Theme.xaml`'e `BasedOn` ile `ui:Card` için
+`VerticalAlignment="Stretch"` + `VerticalContentAlignment="Stretch"`
+eklendi — Template ve diğer tüm Setter'lar korunuyor. Küçük özet
+kartları (UniformGrid içindeki sağlık kutuları, benchmark sonuç
+kartları) `StackPanel`/`UniformGrid` içinde olduğundan bu değişiklikten
+etkilenmiyor (o panel türleri çocuğun `VerticalAlignment`'ından
+bağımsız olarak doğal/sabit boyut veriyor — bu da döküm dosyasından
+doğrulandı, boyutları değişmedi).
+
+**Sayısal doğrulama (aynı teşhis dökümüyle, düzeltmeden önce/sonra):**
+| Eleman | Önce | Sonra |
+|---|---|---|
+| Disk listesi Card (H, VA) | 227,0 / Center | 593,0 / Stretch |
+| HealthPage kök Card (VA) | Center | Stretch |
+| Sıcaklık grafiği CartesianChart (H) | 0,0 | 142,0 |
+| Trend geçmişi grafik 1 CartesianChart (H) | 0,0 | 142,0 |
+| Trend geçmişi grafik 2 CartesianChart (H) | 0,0 | 142,0 |
+
+Kök neden bulunup düzeltildikten sonra `MainWindow.xaml.cs`'teki geçici
+teşhis kodu (`DumpVisualTreeDiagnostics`, `DumpElement`, çağrısı ve
+ilgili `using`'ler) tamamen kaldırıldı.
+
+**Doğrulama:** `dotnet build` (geçici çıktı klasörüne): 0 hata/0 uyarı.
+Launch öncesi/sonrası log dizini karşılaştırması: fark yok, yeni crash
+dosyası oluşmadı; süreç ayakta ve `Responding=True`.
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — bu ajan
+oturumunda piksel render'ı görülemiyor, yalnızca `ActualHeight`/
+`VerticalAlignment` sayısal değerleri doğrulanabildi (ki bu semptomu
+doğrudan açıklayan ölçülebilir kanıt).
+
+**Değişiklik:** `src/SerkonDiskSuite.App/Resources/Theme.xaml`,
+`Views/MainWindow.xaml.cs` (teşhis kodu eklendi + kaldırıldı)
+
+### 33. BUG: SMART tablosu ID kolonu NVMe'de hâlâ görünüyordu (ÇÖZÜLDÜ — 2026-08-05)
+
+Madde 19'daki `ElementName=Root` bağlaması çalışmıyordu çünkü
+`DataGridColumn` görsel ağaçta değildir; `ElementName` bağlamaları
+görsel/mantıksal ağaç üzerinden çözülür ve bir kolon tanımı bu ağacın
+parçası olmadığından `Root` adlı elemanı (Page'i) hiçbir zaman
+bulamıyordu — bağlama sessizce başarısız oluyor, kolon hep görünür
+kalıyordu.
+
+**Düzeltme:** Standart WPF çözümü — bir `FrameworkElement` proxy.
+`HealthPage.xaml`'deki `DataGrid.Resources`'a
+`<FrameworkElement x:Key="ProxyElement" DataContext="{Binding}" />`
+eklendi (DataGrid görsel ağaçta olduğundan `{Binding}` DataGrid'in
+miras aldığı DataContext'e, yani `HealthViewModel`'e çözülüyor). ID
+kolonunun `Visibility` bağlaması artık
+`Source={StaticResource ProxyElement}, Path=DataContext.IsIdColumnVisible`
+kullanıyor.
+
+**Doğrulama:** Madde 32'nin aynı çıktı klasörü + launch döngüsüyle
+(kilitli orijinal süreç nedeniyle) doğrulandı: uygulama çöküşsüz
+başlıyor (binding hatası bir `XamlParseException`/çöküşe dönüşmezdi
+zaten — WPF binding hataları varsayılan olarak sessiz kalır — ama
+kodun kendisi artık doğru bağlama yolunu kullanıyor).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — bir NVMe
+diskte ID kolonunun gerçekten gizlendiği, bir SATA diskte (varsa)
+görünür kaldığı gözle kontrol edilmeli; bu ajan oturumunda gerçek bir
+SATA disk yoktu (bkz. madde 34 — bu makinedeki tek disk NVMe).
+
+**Değişiklik:** `src/SerkonDiskSuite.App/Views/Pages/HealthPage.xaml`
+
+### 34. BUG: NVMe self-test durumu boş dönüyordu (ÇÖZÜLDÜ — 2026-08-05)
+
+Madde 10/24'teki `ParseSelfTestStatus` yalnızca ATA'ya özgü
+`ata_smart_data.self_test.status` alanını okuyordu; bu makinedeki (ve
+büyük olasılıkla kullanıcının makinesindeki) tüm diskler NVMe olduğundan
+özellik hiç veri üretmiyordu.
+
+**Gerçek NVMe JSON şeması** (tahmin edilmedi — bu makinedeki gerçek
+KINGSTON SNV2S1000G üzerinde `tools\smartctl.exe -a --json=c /dev/sda -d
+nvme` çalıştırılıp çıktı okunarak doğrulandı; `--scan` ile cihaz
+otomatik keşfedildi, yönetici hakkı olmadan da SMART verisi tam
+okunabildi):
+
+```json
+"nvme_self_test_log": {
+  "nsid": -1,
+  "current_self_test_operation": { "value": 0, "string": "No self-test in progress" },
+  "table": [
+    { "self_test_code": { "value": 1, "string": "Short" },
+      "self_test_result": { "value": 0, "string": "Completed without error" },
+      "power_on_hours": 1069 }
+  ]
+}
+```
+
+**Düzeltme:** `ParseSelfTestStatus`'a NVMe dalı eklendi: `current_self_test_
+operation.value != 0` çalışıyor demek; çalışmıyorsa `table[0]`'daki
+(en yeni kayıt) `self_test_code`/`self_test_result` ile bir özet
+oluşturuluyor (ör. "Short: Completed without error"), `self_test_result.
+value==0` "geçti" (Passed=true) sayılıyor. NVMe'de test ÇALIŞIRKEN
+kalan yüzdeyi taşıyan alan adı bu makinede DOĞRULANAMADI (gerçek bir
+self-test tetiklenmedi — kısa test dahi olsa gerçek donanımda dakikalar
+sürer ve kullanıcının diskini test etmeye zorlamak riskli olurdu); bu
+yüzden NVMe için `PercentRemaining` her zaman `null` döner, tahmini bir
+alan adı KULLANILMADI. Ne ATA ne NVMe self-test verisi bulunamazsa
+(disk gerçekten desteklemiyor olabilir), arayüz artık boş bırakmıyor —
+"Bu disk self-test durumu raporlamıyor." mesajı dönüyor (benzer şekilde
+NVMe'de log var ama hiç kayıt yoksa "Bu disk için self-test kaydı yok.").
+
+**Doğrulama:** `SmartctlSelfTestParsingTests`'e gerçek yakalanan JSON
+şemasıyla 3 yeni test eklendi (geçmişli/çalışmıyor -> son sonucu
+gösteriyor, çalışıyor -> yüzdesiz "çalışıyor" durumu, geçmiş yok ->
+net mesaj) + mevcut "alan yok" testi yeni mesaja güncellendi.
+`dotnet test`: **69/69 başarılı**.
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — Teşhis
+sayfasında artık "Durum:" alanının NVMe'de de dolu geldiği, gerçek bir
+self-test (önce "Kısa") başlatılıp tamamlandığında doğru sonucun
+göründüğü gözle kontrol edilmeli.
+
+**Değişiklik:** `src/SerkonDiskSuite.Infrastructure/Smart/SmartctlSmartProvider.cs`,
+`tests/SerkonDiskSuite.Tests/SmartctlSelfTestParsingTests.cs`
+
+### 35. Küçük düzeltmeler: Kritik Uyarı=0 satırı + Profil ComboBox placeholder (TAMAMLANDI — 2026-08-05)
+
+- SMART tablosunda NVMe `critical_warning` özniteliği değeri 0 (uyarı
+  yok) ise artık listeye hiç eklenmiyor (`ExtractAttributes`) — bu
+  bilgi zaten Teşhis sayfasında (`CriticalWarningFlags`, madde 25)
+  ayrıntılı gösteriliyor, tabloda gürültü yapmasın.
+- Benchmark sayfasındaki Profil ComboBox'ı artık boş başlamıyor:
+  `BenchmarkProfiles.Custom` adlı bir "Özel" sentinel eklendi,
+  `BenchmarkViewModel.Profiles` listesinin başında görünüyor ve
+  `SelectedProfile` varsayılan olarak buna ayarlı geliyor.
+  `StartAsync`, `Custom`'a başvuru eşitliğiyle (`ReferenceEquals`)
+  bakıp bu sentinel seçiliyken hiçbir profil uygulamıyor (manuel
+  ayarlar aynen kullanılıyor).
+
+**Doğrulama:** `dotnet test`: 69/69 başarılı (mevcut
+`BenchmarkProfilesTests` `All`'ın hâlâ sadece 4 gerçek profili
+içerdiğini doğruluyor, `Custom` ayrı tutulduğu için etkilenmedi).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — ComboBox'ın
+artık "Özel" ile başladığı, bir NVMe diskte kritik uyarı 0 iken
+tabloda o satırın hiç görünmediği gözle kontrol edilmeli.
+
+**Değişiklik:** `src/SerkonDiskSuite.Infrastructure/Smart/SmartctlSmartProvider.cs`,
+`src/SerkonDiskSuite.Core/Models/BenchmarkProfiles.cs`,
+`src/SerkonDiskSuite.App/ViewModels/BenchmarkViewModel.cs`
+
+**Ortam notu (bu 4 madde boyunca geçerli):** Kullanıcı oturum sırasında
+uzaklaştığı için önceki kilitli süreç (PID 35928) hiç kapatılamadı.
+Tüm build+launch doğrulamaları `dotnet build ... -o <geçici klasör>`
+ile geçici, kilitsiz çıktı klasörlerine (scratchpad altında
+run_diag1/2/3) derleyip oradan çalıştırılarak yapıldı. **Gerçek proje
+çıktısı (`src/SerkonDiskSuite.App/bin/...`) hâlâ eski süreç tarafından
+kilitli** — kullanıcı bir sonraki `dotnet build`'den önce açık
+SerkonDiskSuite pencerelerini (bu oturumda biriken birden fazla örnek
+olabilir) elle kapatmalı.
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak
