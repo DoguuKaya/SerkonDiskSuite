@@ -827,6 +827,51 @@ Uygulama başlatılıp 8 saniye ayakta kaldığı doğrulandı (`Responding=True
 `src/SerkonDiskSuite.Infrastructure/Smart/SmartctlSmartProvider.cs`,
 `tests/SerkonDiskSuite.Tests/SmartctlSelfTestParsingTests.cs` (yeni)
 
+### 25. ÖZELLİK: Yeni "Teşhis" sayfası (TAMAMLANDI — 2026-08-05)
+
+Madde 10'da eklenen backend'i (self-test start/status) kullanan yeni bir
+NavigationView sekmesi: `DiagnosticsPage`/`DiagnosticsViewModel`. Toplanan
+bilgiler: firmware sürümü (`DiskInfo.FirmwareVersion`), NVMe kritik uyarı
+bayrakları (`SmartHealth.CriticalWarningFlags`, kırmızı liste), self-test
+türü seçimi (Kısa/Uzun) + "Başlat" butonu, çalışan/son biten testin
+durumu (açıklama + kalan yüzde). Self-test çalışırken durum 15 saniyede
+bir otomatik yoklanır (`PollLoopAsync`, `HealthViewModel`'in sıcaklık
+izleme döngüsüyle aynı desen); sayfaya her girildiğinde de yenilenir
+(`INavigationAware.OnNavigatedToAsync`).
+
+DI: `DiagnosticsViewModel`/`DiagnosticsPage` singleton olarak eklendi,
+`MainViewModel.OnSelectedDiskChanged` artık `Diagnostics.SetDisk(value)`
+de çağırıyor. `MainWindow.xaml`'e "Teşhis" (`Wrench24` simgesi)
+`NavigationViewItem`'ı eklendi.
+
+**Ortam notu (bu turda karşılaşıldı):** Uygulamayı canlı test ederken bir
+kez `Start-Process : İşlem kullanıcı tarafından iptal edildi` hatası
+alındı — önceki tüm başlatmaların aksine (sessiz otomatik yükselme),
+bu kez gerçek bir UAC izin penceresi görünmüş ve iptal olmuştu.
+Kullanıcı UAC'yi onaylayınca ikinci deneme başarılı oldu. Bu, ortamın
+yükseltme davranışının tutarsız/değişken olabileceğini gösteriyor;
+gelecekte tekrar gerçek bir UAC promptu çıkarsa kullanıcının onaylaması
+gerekebilir.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı (`Wrench24` simgesi
+gerçekten var, derleme zamanında doğrulandı). `dotnet test`: 61/61
+başarılı (bu madde saf UI/orkestrasyon; ayrı birim testi istenmedi,
+alttaki `ISmartProvider` metotları madde 10'da zaten test edildi).
+Uygulama başlatılıp 8 saniye ayakta kaldığı doğrulandı (`Responding=True`).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — Teşhis
+sekmesinin göründüğü, firmware/kritik uyarıların doğru geldiği,
+**gerçek bir self-test'in** (öncelikle "Kısa" ile, "Uzun" saatler
+sürebilir) başlatılıp ilerlemenin doğru yoklandığı gözle kontrol
+edilmeli — bu, gerçek donanımda saatler sürebileceğinden bu ajan
+oturumunda KASITLI OLARAK tetiklenmedi.
+
+**Değişiklik:** `src/SerkonDiskSuite.App/ViewModels/DiagnosticsViewModel.cs`
+(yeni), `Views/Pages/DiagnosticsPage.xaml(.cs)` (yeni),
+`Converters/Converters.cs`, `App.xaml(.cs)`,
+`ViewModels/MainViewModel.cs`, `Views/MainWindow.xaml`,
+`Core/Models/SmartHealth.cs`,
+`Infrastructure/Smart/SmartctlSmartProvider.cs`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

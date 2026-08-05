@@ -22,6 +22,7 @@
             <conv:CountToStringConverter x:Key="CountToString" />
             <conv:NumberToStringConverter x:Key="NumberToString" />
             <conv:BenchmarkTestKindToStringConverter x:Key="BenchmarkTestKindToString" />
+            <conv:SelfTestTypeToStringConverter x:Key="SelfTestTypeToString" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

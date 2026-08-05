@@ -18,6 +18,7 @@ public partial class MainViewModel : ObservableObject
     public HealthViewModel Health { get; }
     public BenchmarkViewModel Benchmark { get; }
     public SystemViewModel System { get; }
+    public DiagnosticsViewModel Diagnostics { get; }
 
     [ObservableProperty]
     private ObservableCollection<DiskInfo> _disks = [];
@@ -39,13 +40,15 @@ public partial class MainViewModel : ObservableObject
         ISmartProvider smartProvider,
         HealthViewModel health,
         BenchmarkViewModel benchmark,
-        SystemViewModel system)
+        SystemViewModel system,
+        DiagnosticsViewModel diagnostics)
     {
         _diskProvider = diskProvider;
         _smartProvider = smartProvider;
         Health = health;
         Benchmark = benchmark;
         System = system;
+        Diagnostics = diagnostics;
     }
 
     [RelayCommand]
@@ -80,5 +83,6 @@ public partial class MainViewModel : ObservableObject
     {
         Health.SetDisk(value);
         Benchmark.SetDisk(value);
+        Diagnostics.SetDisk(value);
     }
 }

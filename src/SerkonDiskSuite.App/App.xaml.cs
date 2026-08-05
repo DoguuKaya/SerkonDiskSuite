@@ -98,6 +98,7 @@ public partial class App : Application
         services.AddSingleton<HealthViewModel>();
         services.AddSingleton<BenchmarkViewModel>();
         services.AddSingleton<SystemViewModel>();
+        services.AddSingleton<DiagnosticsViewModel>();
         services.AddSingleton<MainViewModel>();
 
         // NavigationView sayfaları (ui:NavigationViewItem.TargetPageType üzerinden
@@ -105,6 +106,7 @@ public partial class App : Application
         services.AddSingleton<HealthPage>();
         services.AddSingleton<BenchmarkPage>();
         services.AddSingleton<SystemPage>();
+        services.AddSingleton<DiagnosticsPage>();
 
         // Pencereler
         services.AddSingleton<MainWindow>();

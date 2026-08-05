@@ -121,6 +121,8 @@
                                             TargetPageType="{x:Type pages:BenchmarkPage}" />
                     <ui:NavigationViewItem Content="Sistem" Icon="{ui:SymbolIcon Desktop24}"
                                             TargetPageType="{x:Type pages:SystemPage}" />
+                    <ui:NavigationViewItem Content="Teşhis" Icon="{ui:SymbolIcon Wrench24}"
+                                            TargetPageType="{x:Type pages:DiagnosticsPage}" />
                 </ui:NavigationView.MenuItems>
             </ui:NavigationView>
         </Grid>

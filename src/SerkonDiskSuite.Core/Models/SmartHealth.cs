@@ -37,6 +37,11 @@ public sealed class SmartHealth
     /// <summary>Ham SMART öznitelikleri (tabloda göstermek için).</summary>
     public IReadOnlyList<SmartAttribute> Attributes { get; init; } = [];
 
+    /// <summary>NVMe "critical_warning" bit alanının Türkçe açıklamalara çözümlenmiş hâli
+    /// (ör. "Kullanılabilir yedek alanı eşiğin altına düştü"). SATA disklerde veya kritik
+    /// uyarı yoksa boş liste.</summary>
+    public IReadOnlyList<string> CriticalWarningFlags { get; init; } = [];
+
     /// <summary>Bu okumanın alındığı an.</summary>
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.Now;
 }

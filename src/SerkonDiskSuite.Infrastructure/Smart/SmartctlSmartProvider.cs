@@ -85,6 +85,7 @@ public sealed class SmartctlSmartProvider : ISmartProvider
             TotalBytesRead = TryGetNvmeDataUnits(root, "data_units_read"),
             TotalBytesWritten = TryGetNvmeDataUnits(root, "data_units_written"),
             Attributes = ExtractAttributes(root),
+            CriticalWarningFlags = ExtractCriticalWarningFlags(root),
             Timestamp = DateTimeOffset.Now
         };
     }
@@ -243,6 +244,28 @@ public sealed class SmartctlSmartProvider : ISmartProvider
         }
 
         return list;
+    }
+
+    /// <summary>
+    /// NVMe SMART/Health log'undaki "critical_warning" bit alanını (NVMe spesifikasyonunun
+    /// standart 5 bitlik kritik uyarı bayrağı) Türkçe açıklamalara çözümler.
+    /// </summary>
+    private static IReadOnlyList<string> ExtractCriticalWarningFlags(JsonElement root)
+    {
+        if (!root.TryGetProperty("nvme_smart_health_information_log", out var log)
+            || !log.TryGetProperty("critical_warning", out var warn))
+        {
+            return [];
+        }
+
+        int bits = warn.GetInt32();
+        var flags = new List<string>();
+        if ((bits & 0x01) != 0) flags.Add("Kullanılabilir yedek alanı eşiğin altına düştü");
+        if ((bits & 0x02) != 0) flags.Add("Sıcaklık eşik dışında");
+        if ((bits & 0x04) != 0) flags.Add("Cihaz güvenilirliği düşürüldü (aşırı hata)");
+        if ((bits & 0x08) != 0) flags.Add("Ortam salt-okunur moda alındı");
+        if ((bits & 0x10) != 0) flags.Add("Yedekleme (volatile memory backup) cihazı arızalandı");
+        return flags;
     }
 
     // ---- Cihaz tespiti fallback (bkz. ReadHealthAsync) ----

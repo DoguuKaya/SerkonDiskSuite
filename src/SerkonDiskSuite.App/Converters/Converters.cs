@@ -109,6 +109,16 @@ public sealed class CountToStringConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>SelfTestType (enum) -> Türkçe görünen ad ("Kısa" / "Uzun").</summary>
+public sealed class SelfTestTypeToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is SelfTestType.Long ? "Uzun" : "Kısa";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>BenchmarkTestKind (enum) -> Türkçe görünen ad (ör. "Sıralı Yazma").</summary>
 public sealed class BenchmarkTestKindToStringConverter : IValueConverter
 {
