@@ -872,6 +872,43 @@ oturumunda KASITLI OLARAK tetiklenmedi.
 `Core/Models/SmartHealth.cs`,
 `Infrastructure/Smart/SmartctlSmartProvider.cs`
 
+### 26. ÖZELLİK: Trend geçmişi ekranı (TAMAMLANDI — 2026-08-05)
+
+`%LOCALAPPDATA%\SerkonDiskSuite\trend\<seri no>.json` altında loglanan
+SMART geçmişi artık Sağlık sayfasında görünüyor — canlı grafiğin 15
+dakikalık penceresinden bağımsız, dosyadaki TÜM kayıt (budama sınırına
+kadar, 20.000 nokta).
+
+**Model değişikliği:** `SmartTrendPoint`'e `RemainingLifePercent` (int?,
+varsayılan null) eklendi — önceden yalnızca sıcaklık loglanıyordu.
+Eski JSON dosyaları bu alan olmadan da sorunsuz okunuyor (eksik alan
+null'a düşer). `HealthViewModel.MonitorLoopAsync` artık her periyotta
+hem sıcaklığı hem kalan ömrü (varsa) trend deposuna yazıyor.
+
+**UI:** `HealthPage.xaml`'e "Trend Geçmişi (Tüm Kayıt)" başlığı altında
+iki yan yana grafik eklendi: sıcaklık (°C) ve kalan ömür (%, 0-100
+sabit ölçek). `HealthViewModel`'e `HistoryTemperatureSeries`/
+`HistoryRemainingLifeSeries` + paylaşılan `HistoryXAxes` ("dd MMM HH:mm"
+biçimli, günleri de gösterir) + ayrı Y eksenleri eklendi. Bu koleksiyonlar
+hem disk seçildiğinde (dosyadan tüm geçmiş yüklenerek) hem canlı izleme
+sırasında (yeni nokta geldikçe) güncelleniyor — sayfayı yeniden açmaya
+gerek kalmadan en güncel veriyi gösteriyor.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı (`Axis.MinLimit`/`MaxLimit`
+derleme zamanında doğrulandı). `dotnet test`: 61/61 başarılı (bu madde
+saf grafik/veri bağlama; SmartTrendPoint'in yeni alanı geriye dönük
+uyumlu olduğundan ayrı test istenmedi). Uygulama başlatılıp 8 saniye
+ayakta kaldığı doğrulandı (`Responding=True`).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — mevcut bir
+trend JSON dosyasıyla (varsa) geçmiş grafiklerin gerçekten dolduğu,
+uygulama birkaç periyot açık kaldığında yeni noktaların canlı olarak
+eklendiği, kalan ömür grafiğinin 0-100 aralığında sabit kaldığı gözle
+kontrol edilmeli.
+
+**Değişiklik:** `src/SerkonDiskSuite.Core/Models/SmartTrendPoint.cs`,
+`src/SerkonDiskSuite.App/ViewModels/HealthViewModel.cs`,
+`Views/Pages/HealthPage.xaml`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

@@ -20,6 +20,8 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -115,9 +117,30 @@
                                      SyncContext="{Binding ChartSyncObject}" />
             </ui:Card>
 
+            <!-- Trend geçmişi: tüm kayıtlı geçmiş (canlı grafiğin 15 dakikalık penceresinden bağımsız) -->
+            <TextBlock Grid.Row="4" Text="Trend Geçmişi (Tüm Kayıt)" Style="{StaticResource Heading}" Margin="0,12,0,4" />
+            <Grid Grid.Row="5" Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ui:Card Grid.Column="0" Margin="0,0,4,0" Padding="8" Height="160">
+                    <lvc:CartesianChart Series="{Binding HistoryTemperatureSeries}"
+                                         XAxes="{Binding HistoryXAxes}"
+                                         YAxes="{Binding HistoryTemperatureYAxes}"
+                                         SyncContext="{Binding ChartSyncObject}" />
+                </ui:Card>
+                <ui:Card Grid.Column="1" Margin="4,0,0,0" Padding="8" Height="160">
+                    <lvc:CartesianChart Series="{Binding HistoryRemainingLifeSeries}"
+                                         XAxes="{Binding HistoryXAxes}"
+                                         YAxes="{Binding HistoryRemainingLifeYAxes}"
+                                         SyncContext="{Binding ChartSyncObject}" />
+                </ui:Card>
+            </Grid>
+
             <!-- Öznitelik tablosu -->
-            <TextBlock Grid.Row="4" Text="SMART Öznitelikleri" Style="{StaticResource Heading}" Margin="0,12,0,4" />
-            <DataGrid Grid.Row="5" ItemsSource="{Binding Attributes}">
+            <TextBlock Grid.Row="6" Text="SMART Öznitelikleri" Style="{StaticResource Heading}" Margin="0,12,0,4" />
+            <DataGrid Grid.Row="7" ItemsSource="{Binding Attributes}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"
                                          Visibility="{Binding DataContext.IsIdColumnVisible, ElementName=Root, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />

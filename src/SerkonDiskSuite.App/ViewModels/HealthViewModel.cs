@@ -25,6 +25,8 @@ public partial class HealthViewModel : ObservableObject, IDisposable
     private readonly ISmartProvider _smartProvider;
     private readonly ISmartTrendStore _trendStore;
     private readonly ObservableCollection<DateTimePoint> _temperaturePoints = [];
+    private readonly ObservableCollection<DateTimePoint> _historyTemperaturePoints = [];
+    private readonly ObservableCollection<DateTimePoint> _historyRemainingLifePoints = [];
 
     private DiskInfo? _disk;
     private CancellationTokenSource? _monitorCts;
@@ -47,8 +49,38 @@ public partial class HealthViewModel : ObservableObject, IDisposable
     private static readonly SolidColorPaint AxisTextPaint = new(new SKColor(0xC8, 0xC8, 0xC8));
     private static readonly SolidColorPaint AxisSeparatorPaint = new(new SKColor(0x55, 0x58, 0x5E), 1);
     private static readonly SolidColorPaint SeriesStrokePaint = new(new SKColor(0x60, 0xA5, 0xFA), 2);
+    private static readonly SolidColorPaint LifeSeriesStrokePaint = new(new SKColor(0x4A, 0xDE, 0x80), 2);
 
     public ISeries[] TemperatureSeries { get; }
+
+    /// <summary>Diskin tüm kaydedilmiş geçmişi (canlı grafiğin 15 dakikalık penceresinden
+    /// bağımsız — %LOCALAPPDATA%\SerkonDiskSuite\trend\ altındaki dosyanın tamamı).</summary>
+    public ISeries[] HistoryTemperatureSeries { get; }
+    public ISeries[] HistoryRemainingLifeSeries { get; }
+
+    public Axis[] HistoryXAxes { get; } =
+    [
+        new Axis
+        {
+            Labeler = value => new DateTime((long)value).ToString("dd MMM HH:mm"),
+            LabelsPaint = AxisTextPaint,
+            SeparatorsPaint = AxisSeparatorPaint,
+        }
+    ];
+
+    public Axis[] HistoryTemperatureYAxes { get; } =
+    [
+        new Axis { Name = "°C", NamePaint = AxisTextPaint, LabelsPaint = AxisTextPaint, SeparatorsPaint = AxisSeparatorPaint }
+    ];
+
+    public Axis[] HistoryRemainingLifeYAxes { get; } =
+    [
+        new Axis
+        {
+            Name = "%", NamePaint = AxisTextPaint, LabelsPaint = AxisTextPaint, SeparatorsPaint = AxisSeparatorPaint,
+            MinLimit = 0, MaxLimit = 100,
+        }
+    ];
 
     public Axis[] TemperatureXAxes { get; } =
     [
@@ -89,6 +121,30 @@ public partial class HealthViewModel : ObservableObject, IDisposable
                 Fill = null,
             }
         ];
+        HistoryTemperatureSeries =
+        [
+            new LineSeries<DateTimePoint>
+            {
+                Values = _historyTemperaturePoints,
+                GeometrySize = 0,
+                LineSmoothness = 0.3,
+                Name = "Sıcaklık (°C)",
+                Stroke = SeriesStrokePaint,
+                Fill = null,
+            }
+        ];
+        HistoryRemainingLifeSeries =
+        [
+            new LineSeries<DateTimePoint>
+            {
+                Values = _historyRemainingLifePoints,
+                GeometrySize = 0,
+                LineSmoothness = 0.3,
+                Name = "Kalan Ömür (%)",
+                Stroke = LifeSeriesStrokePaint,
+                Fill = null,
+            }
+        ];
     }
 
     public void SetDisk(DiskInfo? disk)
@@ -103,6 +159,8 @@ public partial class HealthViewModel : ObservableObject, IDisposable
         lock (ChartSyncObject)
         {
             _temperaturePoints.Clear();
+            _historyTemperaturePoints.Clear();
+            _historyRemainingLifePoints.Clear();
         }
 
         if (disk is not null)
@@ -137,8 +195,16 @@ public partial class HealthViewModel : ObservableObject, IDisposable
         {
             foreach (var point in history)
             {
-                if (point.Timestamp < cutoff || point.TemperatureCelsius is not { } temp) continue;
-                _temperaturePoints.Add(new DateTimePoint(point.Timestamp.LocalDateTime, temp));
+                if (point.TemperatureCelsius is { } temp)
+                {
+                    _historyTemperaturePoints.Add(new DateTimePoint(point.Timestamp.LocalDateTime, temp));
+                    if (point.Timestamp >= cutoff)
+                        _temperaturePoints.Add(new DateTimePoint(point.Timestamp.LocalDateTime, temp));
+                }
+                if (point.RemainingLifePercent is { } life)
+                {
+                    _historyRemainingLifePoints.Add(new DateTimePoint(point.Timestamp.LocalDateTime, life));
+                }
             }
         }
 
@@ -204,16 +270,27 @@ public partial class HealthViewModel : ObservableObject, IDisposable
             try
             {
                 var health = await _smartProvider.ReadHealthAsync(disk, ct);
-                if (health.TemperatureCelsius is { } temp)
+                if (health.TemperatureCelsius is not null || health.RemainingLifePercent is not null)
                 {
                     lock (ChartSyncObject)
                     {
-                        _temperaturePoints.Add(new DateTimePoint(health.Timestamp.LocalDateTime, temp));
-                        while (_temperaturePoints.Count > MaxPoints)
-                            _temperaturePoints.RemoveAt(0);
+                        if (health.TemperatureCelsius is { } temp)
+                        {
+                            _temperaturePoints.Add(new DateTimePoint(health.Timestamp.LocalDateTime, temp));
+                            while (_temperaturePoints.Count > MaxPoints)
+                                _temperaturePoints.RemoveAt(0);
+                            _historyTemperaturePoints.Add(new DateTimePoint(health.Timestamp.LocalDateTime, temp));
+                        }
+                        if (health.RemainingLifePercent is { } life)
+                        {
+                            _historyRemainingLifePoints.Add(new DateTimePoint(health.Timestamp.LocalDateTime, life));
+                        }
                     }
 
-                    await _trendStore.AppendAsync(diskKey, new SmartTrendPoint(health.Timestamp, temp), ct);
+                    await _trendStore.AppendAsync(
+                        diskKey,
+                        new SmartTrendPoint(health.Timestamp, health.TemperatureCelsius, health.RemainingLifePercent),
+                        ct);
                 }
             }
             catch (OperationCanceledException)
