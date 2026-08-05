@@ -1041,6 +1041,79 @@ edilmeli — bu ikincisi bu ajan oturumunda görsel olarak doğrulanamıyor.
 `Views/Pages/BenchmarkPage.xaml`, `Views/Pages/SystemPage.xaml`,
 `Views/Pages/DiagnosticsPage.xaml`
 
+### 30. BUG: Madde 29'un düzeltmesi işe yaramamıştı, gerçek kök neden bulundu (ÇÖZÜLDÜ — 2026-08-05)
+
+Kullanıcı, madde 29'daki düzeltmenin işe yaramadığını ve önceki
+doğrulamamın hatalı olduğunu bildirdi (çöküş penceresi çıkmasına
+rağmen süreç `DispatcherUnhandledException`'ın `e.Handled=true`
+yapması sayesinde ayakta kalmaya devam ediyordu; "süreç ayakta" tek
+başına yeterli bir kanıt değildi). Yeni crash log
+(`crash-20260805-093856-288.log`) okunup doğrulandı: **birebir aynı**
+yığın izi (`Frame.RemoveBackEntry()` → "Bu işlem yalnızca Frame kendi
+günlüğüne sahip olduğunda kullanılabilir").
+
+**Gerçek kök neden (bu kez kaynak koddan doğrulandı, tahmin edilmedi):**
+Madde 29'un düzeltmesi yanlış bileşeni suçlamıştı (kod tarafındaki
+`SetValue` hack'i) — o kaldırıldı ama asıl suçlu, madde 3'te
+`Resources/Theme.xaml`'e eklenen ve **`BasedOn` içermeyen**
+`<Style TargetType="{x:Type ui:NavigationViewContentPresenter}">`
+idi. lepoco/wpfui kaynak kodundan (GitHub, doğrudan fetch edilip
+doğrulandı) `NavigationViewContentPresenter`'ın static constructor'ı:
+
+```csharp
+JournalOwnershipProperty.OverrideMetadata(
+    typeof(NavigationViewContentPresenter),
+    new FrameworkPropertyMetadata(JournalOwnership.UsesParentJournal));
+```
+
+— yani bu tipin HAM (metadata) varsayılanı `UsesParentJournal`.
+`NavigationView.OnNavigationViewContentPresenterNavigated` ise koşulsuz
+`frame.RemoveBackEntry()` çağırıyor; bu yalnızca `JournalOwnership=
+OwnsJournal` iken çalışır. Böyle bir uygulamanın normalde çalışması,
+WPF-UI'nin kendi `ui:ControlsDictionary`'sindeki (App.xaml'de bizim
+Theme.xaml'den ÖNCE birleştirilen) implicit style'ın bunu
+`OwnsJournal`'a çevirdiğini gösteriyor. `BasedOn` OLMADAN aynı tipte
+(aynı örtük anahtarla) tanımlanan bir Style, WPF'te o anahtarla daha
+önce bulunan kütüphane stilini TAMAMEN EZER — Template'i ve
+`JournalOwnership` Setter'ı dahil. Madde 3'te bu Style `BasedOn`'suz
+eklenmişti; bu yüzden ekleme anından itibaren `JournalOwnership` sessizce
+ham varsayılana (`UsesParentJournal`) düşmüştü — hiçbir gerçek navigasyon
+denemesi olana kadar (yalnızca ilk sayfa yükleniyordu, sonraki bir
+Navigate hiç tetiklenmiyordu) bu fark edilmedi.
+
+**Düzeltme:** Aynı `Style`'a:
+- `BasedOn="{StaticResource {x:Type ui:NavigationViewContentPresenter}}"`
+  eklendi — WPF, bu öz-referanslı `BasedOn` deyiminde kendi tanımını
+  değil, `MergedDictionaries` zincirinde KENDİSİNDEN ÖNCE gelen aynı
+  anahtarlı tanımı (WPF-UI'nin `ui:ControlsDictionary`'si) bulur; böylece
+  Template + tüm orijinal Setter'lar (JournalOwnership dahil) korunur.
+- Çifte güvence olarak `<Setter Property="JournalOwnership" Value="OwnsJournal" />`
+  açıkça eklendi (`JournalOwnership`, `IsDynamicScrollViewerEnabled`'ın
+  aksine public bir setter'a sahip standart bir `Frame` özelliği; Style
+  Setter ile sorunsuz ayarlanabiliyor).
+
+**Doğrulama (kullanıcının istediği kesin yöntemle):** Uygulama
+başlatılmadan ÖNCE `%LOCALAPPDATA%\SerkonDiskSuite\logs\` içeriği
+alındı (boş), uygulama başlatılıp **10 saniye** beklendi, dizin
+TEKRAR listelendi (yine boş) ve `Compare-Object` ile önce/sonra
+karşılaştırıldı — **fark yok, yeni dosya oluşmadı**. Süreç ayrıca
+ayakta ve `Responding=True`. `dotnet build`: 0 hata/0 uyarı.
+`dotnet test`: 66/66 başarılı.
+
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — dört sayfa
+arasında (Sağlık/Benchmark/Sistem/Teşhis) gerçek navigasyonun artık
+istisna fırlatmadan çalıştığı, ve madde 3'ün asıl hedefinin (Stretch
+hizalama + `BasedOn` ile geri kazanılan orijinal Template) içerik
+yerleşimini bozmadığı gözle kontrol edilmeli — bu ajan oturumunda görsel
+render doğrulanamıyor, yalnızca çökme/log kontrolü yapılabiliyor.
+
+**Ders:** WPF'te bir kütüphanenin kontrolüne ait `TargetType` Style'ı
+ASLA `BasedOn` olmadan yazılmamalı — bu, o tipin implicit stilini (ve
+o stilin sağladığı, görünmeyen ama davranışsal olarak kritik olabilecek
+Setter'ları) sessizce siler.
+
+**Değişiklik:** `src/SerkonDiskSuite.App/Resources/Theme.xaml`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

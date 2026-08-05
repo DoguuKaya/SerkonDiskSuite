@@ -64,20 +64,34 @@
         satırları doğal (Auto) boyutuna küçülüyor ve tüm sayfa NavigationView
         içinde dikeyde ORTALANIYOR (üstte ve altta büyük boş alan).
 
-        DENENDİ VE GERİ ALINDI: IsDynamicScrollViewerEnabled'ı kod tarafından
-        (VisualTreeHelper + SetValue, CLR set erişeni `protected` olduğundan
-        Style Setter/MC3080 kullanılamıyordu) kapatmak, presenter'ın (bir Frame
-        türevi) JournalOwnership durumunu bozdu: "This operation is only valid
-        when the Frame owns its own journal" istisnasıyla ilk Navigate çağrısında
-        çöküyordu (bkz. PROGRESS.md madde 29). Bu yüzden IsDynamicScrollViewerEnabled
-        artık HİÇ değiştirilmiyor (varsayılan true kalıyor); yerleşim sorunu
-        sayfa tarafında (her Page'in MinHeight'i ScrollViewer/Frame ata'sının
-        ActualHeight'ine bağlanarak) çözülüyor. Burada yalnızca Stretch
-        hizalaması (public setter'ları var, journal'a dokunmuyor) kalıyor.
+        DENENDİ VE GERİ ALINDI (1): IsDynamicScrollViewerEnabled'ı kod
+        tarafından (VisualTreeHelper + SetValue) kapatmak — bu madde 29'da
+        çözüldüğü sanılmıştı ama ASIL kök neden bu DEĞİLDİ (bkz. aşağı).
+        IsDynamicScrollViewerEnabled artık hiç değiştirilmiyor.
+
+        GERÇEK KÖK NEDEN (madde 30, PROGRESS.md'de detaylı): Bu Style
+        `BasedOn` OLMADAN tanımlanmıştı. `NavigationViewContentPresenter`'ın
+        static constructor'ı (github.com/lepoco/wpfui, doğrulandı)
+        `JournalOwnershipProperty`'yi tip seviyesinde `UsesParentJournal`
+        varsayılanına çeviriyor; WPF-UI'nin kendi `ui:ControlsDictionary`
+        içindeki (App.xaml'de bu dosyadan ÖNCE birleştirilen) implicit
+        style'ı büyük ihtimalle bunu `OwnsJournal`'a çeviren bir Setter
+        taşıyor (`NavigationView.OnNavigationViewContentPresenterNavigated`
+        koşulsuz `frame.RemoveBackEntry()` çağırıyor, bu yalnızca
+        `OwnsJournal` iken çalışır). `BasedOn`'suz bir `TargetType` Style,
+        aynı anahtarla (tip) WPF-UI'nin implicit style'ını TAMAMEN EZER —
+        Template'i ve JournalOwnership Setter'ı dahil her şeyi siliyordu.
+        Düzeltme: `BasedOn="{StaticResource {x:Type ...}}"` ile WPF-UI'nin
+        orijinal style'ı temel alınıyor (App.xaml'de `ui:ControlsDictionary`
+        bu dosyadan önce birleştirildiği için `StaticResource` araması onu
+        buluyor); ayrıca çifte güvence olarak `JournalOwnership="OwnsJournal"`
+        açıkça belirtiliyor.
     -->
-    <Style TargetType="{x:Type ui:NavigationViewContentPresenter}">
+    <Style TargetType="{x:Type ui:NavigationViewContentPresenter}"
+           BasedOn="{StaticResource {x:Type ui:NavigationViewContentPresenter}}">
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="JournalOwnership" Value="OwnsJournal" />
     </Style>
 
     <!-- ================= DataGrid ================= -->
