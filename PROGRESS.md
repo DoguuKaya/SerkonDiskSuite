@@ -965,6 +965,82 @@ kaldırdı — hiçbir kod değişikliği yapılmadı, commit atılmadı.
 
 **Bu turun (madde 1-13) tüm işleri tamamlandı ve commit edildi.**
 
+### 29. BUG: Madde 3'ün ScrollViewer hack'i navigasyon journal'ını bozmuştu (ÇÖZÜLDÜ — 2026-08-05)
+
+Kullanıcı, uygulamanın açılışta artık navigasyon yapamadığını bildirdi.
+Global hata yakalayıcının yazdığı
+`%LOCALAPPDATA%\SerkonDiskSuite\logs\crash-20260805-083547-989.log`
+dosyası okunup tam yığın izi doğrulandı:
+
+```
+System.InvalidOperationException: Bu işlem yalnızca, Frame kendi
+günlüğüne sahip olduğunda kullanılabilir.
+   at System.Windows.Controls.Frame.RemoveBackEntry()
+   at Wpf.Ui.Controls.NavigationView.OnNavigationViewContentPresenterNavigated(...)
+   at System.Windows.Navigation.NavigationService.FireNavigated(...)
+   ...
+```
+
+**Kök neden:** Madde 3'te (bkz. yukarıda #17) eklenen
+`MainWindow.xaml.cs`'teki `DisableDynamicScrollViewer` — `VisualTreeHelper`
+ile `NavigationViewContentPresenter`'ı bulup
+`IsDynamicScrollViewerEnabledProperty`'yi `SetValue` ile zorla `false`
+yapıyordu (CLR set erişeni `protected` olduğundan Style Setter
+kullanılamamıştı). Bu presenter aslında bir `Frame` türevi ve
+`JournalOwnership=UsesParentJournal` ile çalışıyor (kendi journal'ına
+sahip değil, ebeveynin journal'ını kullanıyor) — `IsDynamicScrollViewerEnabled`'ı
+dıştan zorlamak, `NavigationView`'ın kendi iç navigasyon/journal
+yönetimiyle çakıştı ve bir sonraki `Navigate` çağrısında
+`RemoveBackEntry()`'nin "Frame kendi journal'ına sahip değilken"
+çalışmasına, dolayısıyla istisnaya yol açtı. Yani madde 3'ün "düzeltmesi"
+o an çökmüyordu ama gizli bir navigasyon durumu bozukluğu bırakmıştı;
+bir sonraki gerçek navigasyon denemesinde ortaya çıktı.
+
+**Düzeltme:**
+1. `DisableDynamicScrollViewer` metodu ve çağrısı `MainWindow.xaml.cs`'ten
+   tamamen kaldırıldı — `IsDynamicScrollViewerEnabled` artık hiç
+   değiştirilmiyor, WPF-UI'nin varsayılanında (`true`) kalıyor. Bu yol
+   bir daha denenmeyecek.
+2. Yerleşim sorunu (sayfa içeriğinin ScrollViewer içinde dikeyde
+   ortalanması) için üç seçenek değerlendirildi:
+   - (a) Sayfa kök elemanının `MinHeight`'ini ata `Frame`'in
+     `ActualHeight`'ine bağlamak — **seçildi**. Standart, iyi bilinen bir
+     WPF tekniği (Frame/ScrollViewer içinde barındırılan içeriğin
+     viewport'u doldurmasını sağlar); NavigationView'ın hiçbir iç
+     durumuna (journal, ScrollViewer sarmalama) dokunmuyor, salt
+     bağlama — sıfır risk.
+   - (b) Grid'lerde "*" yerine sabit/oransal yükseklik — reddedildi:
+     tüm sayfaların yeniden tasarlanmasını gerektirir, pencere yeniden
+     boyutlandığında hâlâ doğru esnemeyebilir, çok daha büyük bir değişiklik.
+   - (c) Yalnızca `VerticalContentAlignment=Stretch` — zaten madde 3'te
+     `NavigationViewContentPresenter` stiline eklenmişti (journal'a
+     dokunmadığı için o kısım korundu) ama tek başına yeterli değildi
+     (ScrollViewer içeriği sonsuz yükseklikle ölçtüğü için Stretch hizalama
+     tek başına Grid'in "*" satırlarını genişletmeye yetmiyor).
+   Sonuç: (a) + korunan (c) birlikte uygulandı. `HealthPage.xaml`,
+   `BenchmarkPage.xaml`, `SystemPage.xaml`, `DiagnosticsPage.xaml`'in
+   kök `Page` elemanına
+   `MinHeight="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Frame}}"`
+   eklendi.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 66/66
+başarılı. Uygulama başlatılıp 8 saniye ayakta kaldığı VE
+`%LOCALAPPDATA%\SerkonDiskSuite\logs\` altında **yeni hiçbir crash
+dosyası oluşmadığı** doğrulandı (yalnızca "ayakta kalmak" yeterli
+sayılmadı — kullanıcının talimatı gereği hata penceresi çıkıp
+çıkmadığı da kontrol edildi).
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — sayfalar
+arası gerçek navigasyonun (Sağlık ↔ Benchmark ↔ Sistem ↔ Teşhis) artık
+sorunsuz çalıştığı VE madde 3'ün asıl hedefinin (içeriğin dikeyde
+ortalanmaması, disk listesinin/sayfa içeriğinin baştan sona dolması)
+bu MinHeight yaklaşımıyla da gerçekten sağlandığı gözle kontrol
+edilmeli — bu ikincisi bu ajan oturumunda görsel olarak doğrulanamıyor.
+
+**Değişiklik:** `src/SerkonDiskSuite.App/Views/MainWindow.xaml.cs`,
+`Resources/Theme.xaml`, `Views/Pages/HealthPage.xaml`,
+`Views/Pages/BenchmarkPage.xaml`, `Views/Pages/SystemPage.xaml`,
+`Views/Pages/DiagnosticsPage.xaml`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

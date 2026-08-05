@@ -9,6 +9,7 @@
       xmlns:viewModels="clr-namespace:SerkonDiskSuite.App.ViewModels"
       Title="Sağlık (SMART)"
       x:Name="Root"
+      MinHeight="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Frame}}"
       d:DataContext="{d:DesignInstance Type=viewModels:HealthViewModel}"
       mc:Ignorable="d">
 

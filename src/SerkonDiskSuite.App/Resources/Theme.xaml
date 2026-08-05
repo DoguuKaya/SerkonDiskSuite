@@ -63,10 +63,17 @@
         yükseklik veren bir ScrollViewer'a sarar; bu yüzden Grid'deki "*"
         satırları doğal (Auto) boyutuna küçülüyor ve tüm sayfa NavigationView
         içinde dikeyde ORTALANIYOR (üstte ve altta büyük boş alan).
-        IsDynamicScrollViewerEnabled'ın CLR set erişeni `protected` olduğundan
-        (MC3080) burada Setter ile ayarlanamıyor; bu yüzden kapatılması
-        MainWindow.xaml.cs'te SetValue ile yapılıyor. Burada sadece Stretch
-        hizalaması (public setter'ları var) ayarlanıyor.
+
+        DENENDİ VE GERİ ALINDI: IsDynamicScrollViewerEnabled'ı kod tarafından
+        (VisualTreeHelper + SetValue, CLR set erişeni `protected` olduğundan
+        Style Setter/MC3080 kullanılamıyordu) kapatmak, presenter'ın (bir Frame
+        türevi) JournalOwnership durumunu bozdu: "This operation is only valid
+        when the Frame owns its own journal" istisnasıyla ilk Navigate çağrısında
+        çöküyordu (bkz. PROGRESS.md madde 29). Bu yüzden IsDynamicScrollViewerEnabled
+        artık HİÇ değiştirilmiyor (varsayılan true kalıyor); yerleşim sorunu
+        sayfa tarafında (her Page'in MinHeight'i ScrollViewer/Frame ata'sının
+        ActualHeight'ine bağlanarak) çözülüyor. Burada yalnızca Stretch
+        hizalaması (public setter'ları var, journal'a dokunmuyor) kalıyor.
     -->
     <Style TargetType="{x:Type ui:NavigationViewContentPresenter}">
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
