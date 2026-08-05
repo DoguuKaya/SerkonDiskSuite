@@ -953,6 +953,18 @@ gözle kontrol edilmeli.
 `Views/MainWindow.xaml`,
 `tests/SerkonDiskSuite.Tests/DiskReportBuilderTests.cs` (yeni)
 
+### 28. Madde 14 (İngilizce dil desteği) — KULLANICI KARARIYLA ATLANDI (2026-08-05)
+
+Kullanıcıyla konuşuldu: tr/en lokalizasyonun kapsamı (uygulamadaki
+~150-250 farklı metnin kaynak dosyalarına taşınması, dil seçici
+ayarlar arayüzü, sayı/tarih biçiminin dile göre dinamikleşmesi) diğer
+maddelere göre çok daha büyük olduğu için önce nasıl ilerlenmek
+istendiği soruldu (tam kapsam / küçük MVP / ayrı oturum). Kullanıcı
+"İngilizce dil desteğine gerek yok" diyerek bu maddeyi tamamen
+kaldırdı — hiçbir kod değişikliği yapılmadı, commit atılmadı.
+
+**Bu turun (madde 1-13) tüm işleri tamamlandı ve commit edildi.**
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak
