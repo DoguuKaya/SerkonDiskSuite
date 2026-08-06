@@ -41,27 +41,13 @@ public sealed class SmartctlSmartProvider : ISmartProvider
 
     public async Task<SmartHealth> ReadHealthAsync(DiskInfo disk, CancellationToken ct = default)
     {
-        // -a: tüm bilgiler, --json=c: sıkıştırılmış JSON
-        var (exitCode, stdout, stderr) = await RunAsync(["-a", "--json=c", disk.DevicePath], ct);
+        var (_, exitCode, stdout, stderr) = await ResolveDeviceAsync(disk, ct);
 
         // smartctl exit kodu bir bit maskesidir; 0 = tamamen temiz.
         // 2. bit (değer 4) "device open failed" demektir, bunu hata sayarız.
         if ((exitCode & 0x02) != 0)
             throw new InvalidOperationException(
                 $"smartctl diski açamadı ({disk.DevicePath}). Yönetici olarak çalıştırdığınızdan emin olun. {stderr}");
-
-        // Bazı NVMe denetleyicilerinde smartctl, Windows'un doğal "\\.\PHYSICALDRIVEn" yolundan
-        // cihaz tipini tanıyamıyor (ör. Kingston SNV2S1000G): exit kodu bunu "device open failed"
-        // olarak işaretlemiyor, JSON geçerli dönüyor ama "device" alanı hiç yok; sonuç olarak
-        // SMART verileri sessizce boş kalıyor. Bu durumda smartctl'in kendi "--scan" çıktısındaki
-        // gerçek cihaz adını/tipini (ör. "/dev/sda -d nvme") kullanıp seri numarasıyla eşleştirerek
-        // yeniden dene.
-        if (!HasDeviceInfo(stdout))
-        {
-            var rescanned = await TryReadViaScanAsync(disk, ct);
-            if (rescanned is not null)
-                stdout = rescanned;
-        }
 
         using var doc = JsonDocument.Parse(stdout);
         var root = doc.RootElement;
@@ -92,8 +78,10 @@ public sealed class SmartctlSmartProvider : ISmartProvider
 
     public async Task StartSelfTestAsync(DiskInfo disk, SelfTestType type, CancellationToken ct = default)
     {
+        var (deviceArgs, _, _, _) = await ResolveDeviceAsync(disk, ct);
+
         string testArg = type == SelfTestType.Long ? "long" : "short";
-        var (exitCode, _, stderr) = await RunAsync(["-t", testArg, disk.DevicePath], ct);
+        var (exitCode, _, stderr) = await RunAsync(["-t", testArg, ..deviceArgs], ct);
 
         if ((exitCode & 0x02) != 0)
             throw new InvalidOperationException(
@@ -102,7 +90,7 @@ public sealed class SmartctlSmartProvider : ISmartProvider
 
     public async Task<SelfTestStatus> GetSelfTestStatusAsync(DiskInfo disk, CancellationToken ct = default)
     {
-        var (exitCode, stdout, stderr) = await RunAsync(["-a", "--json=c", disk.DevicePath], ct);
+        var (_, exitCode, stdout, stderr) = await ResolveDeviceAsync(disk, ct);
 
         if ((exitCode & 0x02) != 0)
             throw new InvalidOperationException(
@@ -321,7 +309,36 @@ public sealed class SmartctlSmartProvider : ISmartProvider
         return flags;
     }
 
-    // ---- Cihaz tespiti fallback (bkz. ReadHealthAsync) ----
+    // ---- Cihaz tespiti fallback ----
+
+    /// <summary>
+    /// SMART okuma/self-test başlatma/self-test durumu sorgulama — üçü de aynı cihazı bulmak
+    /// zorunda, bu yüzden çözümleme burada tek bir yerde yapılır. Önce disk.DevicePath (Windows'un
+    /// doğal "\\.\PHYSICALDRIVEn" yolu) ile "-a --json=c" denenir. Bazı NVMe denetleyicilerinde
+    /// smartctl bu yoldan cihaz tipini tanıyamıyor (ör. Kingston SNV2S1000G): exit kodu bunu
+    /// "device open failed" olarak işaretlemiyor, JSON geçerli dönüyor ama "device" alanı hiç yok;
+    /// sonuç olarak SMART/self-test verileri sessizce boş kalıyor. Bu durumda smartctl'in kendi
+    /// "--scan" çıktısındaki gerçek cihaz adını/tipini (ör. "/dev/sda -d nvme") kullanıp seri
+    /// numarasıyla eşleştirerek yeniden denenir. Döndürülen Stdout/ExitCode/Stderr, çözümleme
+    /// sırasında zaten çalıştırılmış olan "-a --json=c" çağrısına aittir (GetSelfTestStatusAsync
+    /// ve ReadHealthAsync bunu ekstra bir smartctl çağrısı yapmadan doğrudan kullanır); Args ise
+    /// StartSelfTestAsync'in "-t short/long" çağrısında cihazı hedeflemek için kullanılır.
+    /// </summary>
+    private async Task<(string[] Args, int ExitCode, string Stdout, string Stderr)> ResolveDeviceAsync(
+        DiskInfo disk, CancellationToken ct)
+    {
+        string[] directArgs = [disk.DevicePath];
+        var (exitCode, stdout, stderr) = await RunAsync(["-a", "--json=c", disk.DevicePath], ct);
+
+        if ((exitCode & 0x02) == 0 && HasDeviceInfo(stdout))
+            return (directArgs, exitCode, stdout, stderr);
+
+        var scanned = await FindScanDeviceAsync(disk, ct);
+        if (scanned is { } found)
+            return (found.Args, 0, found.Json, "");
+
+        return (directArgs, exitCode, stdout, stderr);
+    }
 
     private static bool HasDeviceInfo(string json)
     {
@@ -330,12 +347,12 @@ public sealed class SmartctlSmartProvider : ISmartProvider
     }
 
     /// <summary>
-    /// smartctl'in "--scan" ile bulduğu gerçek cihaz adı/tipini kullanarak SMART verisini
-    /// yeniden okumayı dener. Birden fazla disk taranırsa seri numarasıyla eşleştirme yapılır;
-    /// eşleşme yoksa ve tarama tek bir aday gösteriyorsa (yaygın tek diskli senaryo) o kullanılır,
-    /// aksi halde belirsizlik nedeniyle null döner.
+    /// smartctl'in "--scan" ile bulduğu gerçek cihaz adını/tipini arar. Birden fazla disk
+    /// taranırsa seri numarasıyla eşleştirme yapılır; eşleşme yoksa ve tarama tek bir aday
+    /// gösteriyorsa (yaygın tek diskli senaryo) o kullanılır, aksi halde belirsizlik nedeniyle
+    /// null döner.
     /// </summary>
-    private async Task<string?> TryReadViaScanAsync(DiskInfo disk, CancellationToken ct)
+    private async Task<(string[] Args, string Json)?> FindScanDeviceAsync(DiskInfo disk, CancellationToken ct)
     {
         var (_, scanOut, _) = await RunAsync(["--scan"], ct);
 
@@ -347,19 +364,20 @@ public sealed class SmartctlSmartProvider : ISmartProvider
                 candidates.Add((m.Groups[1].Value, m.Groups[2].Value));
         }
 
-        string? firstValid = null;
+        (string[] Args, string Json)? firstValid = null;
         foreach (var (device, type) in candidates)
         {
             ct.ThrowIfCancellationRequested();
 
-            var (exit, json, _) = await RunAsync(["-a", "--json=c", "-d", type, device], ct);
+            string[] args = ["-d", type, device];
+            var (exit, json, _) = await RunAsync(["-a", "--json=c", ..args], ct);
             if ((exit & 0x02) != 0 || !HasDeviceInfo(json))
                 continue;
 
             if (MatchesDisk(json, disk))
-                return json;
+                return (args, json);
 
-            firstValid ??= json;
+            firstValid ??= (args, json);
         }
 
         return candidates.Count == 1 ? firstValid : null;

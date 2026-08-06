@@ -41,6 +41,10 @@ public partial class HealthViewModel : ObservableObject, IDisposable
     /// ID kolonu NVMe'de gizlenir, SATA'da görünür kalır.</summary>
     [ObservableProperty] private bool _isIdColumnVisible = true;
 
+    /// <summary>Canlı sıcaklık grafiğinde en az bir nokta var mı? Yoksa "Veri bekleniyor..."
+    /// yer tutucusu gösterilir (aksi hâlde grafik tamamen boş bir alan gibi görünür).</summary>
+    [ObservableProperty] private bool _hasTemperatureData;
+
     /// <summary>LiveCharts'ın arka plan iş parçacığından güvenle güncellenebilmesi için kilit nesnesi.</summary>
     public object ChartSyncObject { get; } = new();
 
@@ -162,6 +166,7 @@ public partial class HealthViewModel : ObservableObject, IDisposable
             _historyTemperaturePoints.Clear();
             _historyRemainingLifePoints.Clear();
         }
+        HasTemperatureData = false;
 
         if (disk is not null)
         {
@@ -199,7 +204,10 @@ public partial class HealthViewModel : ObservableObject, IDisposable
                 {
                     _historyTemperaturePoints.Add(new DateTimePoint(point.Timestamp.LocalDateTime, temp));
                     if (point.Timestamp >= cutoff)
+                    {
                         _temperaturePoints.Add(new DateTimePoint(point.Timestamp.LocalDateTime, temp));
+                        HasTemperatureData = true;
+                    }
                 }
                 if (point.RemainingLifePercent is { } life)
                 {
@@ -280,6 +288,7 @@ public partial class HealthViewModel : ObservableObject, IDisposable
                             while (_temperaturePoints.Count > MaxPoints)
                                 _temperaturePoints.RemoveAt(0);
                             _historyTemperaturePoints.Add(new DateTimePoint(health.Timestamp.LocalDateTime, temp));
+                            HasTemperatureData = true;
                         }
                         if (health.RemainingLifePercent is { } life)
                         {

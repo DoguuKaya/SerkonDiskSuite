@@ -1302,6 +1302,214 @@ kilitli** — kullanıcı bir sonraki `dotnet build`'den önce açık
 SerkonDiskSuite pencerelerini (bu oturumda biriken birden fazla örnek
 olabilir) elle kapatmalı.
 
+### 36. BUG: Madde 33'ün proxy'si hâlâ çalışmıyordu + sıcaklık grafiği boş yer tutucusu (ÇÖZÜLDÜ — 2026-08-05)
+
+**Kök neden:** Madde 33'teki düzeltme `ProxyElement`'i `DataGrid.Resources`'a
+koyuyordu. Bu, ID kolonunun `Visibility` bağlamasını sessizce
+başarısız bırakan asıl sorunu çözmüyordu: bir `ResourceDictionary`
+içindeki nesneler görsel/mantıksal ağacın parçası DEĞİLDİR, bu yüzden
+`ProxyElement`'in kendi `DataContext="{Binding}"` bağlaması hiçbir
+yerden miras alacak bir ağaç bulamıyor, `DataContext` `null` kalıyordu
+— kolon hep görünür kalmaya devam ediyordu (madde 33'ün "TAMAMLANDI"
+notu, bu ajan oturumunda gerçek uygulama üzerinde doğrulanmadan
+yazılmıştı).
+
+**Düzeltme:** `ProxyElement` tanımı `HealthPage.Resources`'a taşındı ve
+`DataGrid`'in yanına, `Visibility="Collapsed"` bir
+`<ContentControl Content="{StaticResource ProxyElement}" Width="0" Height="0" />`
+eklendi — bu, proxy örneğini gerçekten görsel ağaca ekleyip
+`DataContext` mirasının çalışmasını sağlıyor (`StaticResource` aynı
+paylaşılan örneği döndürdüğünden, `ContentControl.Content` ile
+`Visibility` bağlamasının `Source`'u aynı nesne).
+
+**Doğrulama (gerçek uygulama üzerinde, bu turda):** Geçici bir
+tanılama (`MainWindow.xaml.cs`'te 3 saniyelik `DispatcherTimer` +
+`dataGrid.Columns` koleksiyonunu doğrudan dosyaya yazan kod — kolon
+tanımları görsel ağaçta olmadığından `VisualTreeHelper` ile değil,
+`DataGrid.Columns` API'siyle okundu) `%LOCALAPPDATA%\SerkonDiskSuite\
+logs\visualtree.txt`'ye şunu yazdı:
+
+```
+SeciliDisk BusType: Nvme
+HealthViewModel.IsIdColumnVisible: False
+Kolonlar (dataGrid.Columns dogrudan):
+  [0] Header=ID Visibility=Collapsed
+  [1] Header=Öznitelik Visibility=Visible
+  [2] Header=Değer Visibility=Visible
+```
+
+Yani NVMe diskte ID kolonu artık gerçekten `Collapsed`. (Aynı
+tanılama, görsel ağaçtaki `DataGridColumnHeader` SAYISINI da 3 olarak
+raporluyordu — ilk bakışta "3 kolon = düzeltme çalışmadı" gibi
+görünüyordu, ama bu yanıltıcıydı: WPF, tanımlı kolonlar tüm başlık
+genişliğini doldurmadığında görünmez bir "doldurucu" `DataGridColumnHeader`
+ekliyor; gerçek kanıt `dataGrid.Columns[i].Visibility` değerleridir,
+görsel ağaçtaki header SAYISI değil.) Doğrulama tamamlanınca tüm geçici
+tanılama kodu (`DumpColumnHeaderCount`, `CountColumnHeaders`,
+`FindVisualChild`, zamanlayıcı) `MainWindow.xaml.cs`'ten tamamen
+kaldırıldı.
+
+**Ayrıca bu turda — sıcaklık grafiği boş durum yer tutucusu:**
+Uygulama yeni açıldığında (ya da bir disk seçildiğinde) canlı sıcaklık
+grafiğinin veri noktası birikmesi birkaç saniye/döngü sürebiliyor; bu
+sırada grafik "boş/kırık" gibi görünüyordu. `HealthViewModel`'e
+`HasTemperatureData` (`[ObservableProperty]`) eklendi — ilk sıcaklık
+noktası (canlı ya da geçmişten yüklenen) eklenene kadar `false`
+kalıyor. `HealthPage.xaml`'de grafiğin üzerine, bu bayrak `false`
+olduğunda görünen "Veri bekleniyor..." `TextBlock`'u eklendi
+(`InverseBoolToVisibilityConverter`, yeni — `Converters.cs`).
+
+**Doğrulama:** `dotnet build` (tüm çözüm): 0 hata/0 uyarı. `dotnet
+test`: **69/69 başarılı** (test sayısı değişmedi, bu madde için yeni
+test eklenmedi — saf UI/görsel-ağaç davranışı, mevcut altyapı WPF görsel
+ağacını kapsamıyor). Uygulama gerçek proje çıktısından (
+`src/SerkonDiskSuite.App/bin/Debug/net8.0-windows/win-x64/`) başlatıldı,
+8+ saniye ayakta kaldığı ve `Responding=True` olduğu doğrulandı; yeni
+crash log oluşmadı.
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — "Veri
+bekleniyor..." metninin gerçekten göründüğü/kaybolduğu ve ID kolonunun
+NVMe'de artık gerçekten görünmediği (bu turda yalnızca `Visibility`
+değeri programatik olarak doğrulandı, piksel render'ı görülemedi) gözle
+kontrol edilmeli.
+
+**Değişiklik:** `src/SerkonDiskSuite.App/Views/Pages/HealthPage.xaml`,
+`src/SerkonDiskSuite.App/ViewModels/HealthViewModel.cs`,
+`src/SerkonDiskSuite.App/Converters/Converters.cs`,
+`src/SerkonDiskSuite.App/Views/MainWindow.xaml.cs` (geçici tanılama
+eklendi + kaldırıldı, net değişiklik yok)
+
+### 37. BUG: Grafik arka planları beyazdı — doğru property doğrulandı (ÇÖZÜLDÜ — 2026-08-06)
+
+Madde 36'nın oturumunda üç `lvc:CartesianChart`'a `Background="Transparent"`
+eklenmişti, ama bu **doğrulanmadan** (reflection/dokümantasyon olmadan)
+yapılmış bir tahmindi — PROGRESS.md'ye de hiç yazılmamıştı. Bu turda
+kullanıcı "tahmin etme, doğrula" talimatı verdiği için, gerçek mekanizma
+tahmin edilmeden araştırıldı:
+
+**Araştırma yöntemi:** `LiveChartsCore.SkiaSharpView.WPF.dll` (NuGet cache,
+2.0.5) üzerinde geçici bir konsol/WPF probe projesiyle reflection yapıldı
+(scratchpad altında, repoya girmedi) + LiveCharts2'nin GitHub kaynağı
+(`beto-rodriguez/LiveCharts2`, `src/skiasharp/LiveChartsCore.SkiaSharp.WPF/
+Rendering/CPURenderMode.cs` ve `GPURenderMode.cs`) `WebFetch` ile okundu.
+
+**Bulgular:**
+- `CartesianChart.Background` **standart WPF `Control.Background`**'dır
+  (LiveChartsCore'a özel bir property değil).
+- Her iki render modu da (`CPURenderMode`/`GPURenderMode`) `OnPaintSurface`
+  içinde Skia canvas'ının arka plan rengini şu ifadeyle alıyor:
+  `((Parent as FrameworkElement)?.Parent as IChartView)?.BackColor.AsSKColor()
+  ?? SKColor.Empty` — yani **`IChartView.BackColor`** gerçek çizim rengini
+  belirliyor.
+- Canlı reflection testiyle (gerçek bir `CartesianChart` örneği, STA
+  thread + `Application` içinde) doğrulandı: `chart.Background` set
+  edilmeden `BackColor` = `(0,0,0,0)` (tam şeffaf); `chart.Background =
+  Red` set edilince `BackColor` = `(255,0,0,255)` oldu. Yani **WPF
+  `Control.Background`, `IChartView.BackColor`'ı doğrudan besliyor** —
+  `Background="Transparent"` gerçekten doğru ve yeterli property.
+- `DrawMarginFrame` (çizim alanı çerçevesi/dolgusu) varsayılan olarak
+  `null` (hiç dolgu çizilmiyor); `ChartTheme` varsayılanı `IsDark=False`
+  (LiveCharts'ın kendi "Light" teması) ama bu yalnızca eksen/seri
+  renklerini etkiler, arka planı değil — madde 15'te eksen/seri renkleri
+  zaten açıkça override edilmişti.
+- Uygulama hiçbir yerde `LiveCharts.Configure(...)` çağırmıyor (`grep`
+  ile doğrulandı, hiç eşleşme yok); varsayılan tema, `CartesianChart`
+  ilk oluşturulduğunda lazy-static olarak devreye giriyor
+  (`[ModuleInitializer]` değil — reflection'da öyle bir öznitelik
+  bulunamadı; muhtemelen tip statik constructor'ı üzerinden).
+
+**Sonuç:** Kod değişikliği gerekmedi — madde 36'da zaten eklenmiş olan
+`Background="Transparent"` üçü için de doğru ve yeterli düzeltme; bu
+turda yapılan, onu tahminden **doğrulanmış bilgiye** çevirmek oldu.
+Boş veri durumunda gösterilen "Veri bekleniyor..." yer tutucusu da
+madde 36'da zaten eklenmişti.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 69/69
+başarılı (kod değişikliği yok, mevcut testler etkilenmedi). Uygulama
+gerçek proje çıktısından başlatıldı; kullanıcı UAC istemini onayladı,
+süreç (`PID 21104`) `Responding=True` durumda ayakta kaldı; launch
+öncesi/sonrası `%LOCALAPPDATA%\SerkonDiskSuite\logs\` karşılaştırıldı,
+yeni crash dosyası oluşmadı.
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — üç grafiğin
+artık kart zemininin şeffaf/koyu rengini gösterdiği (beyaz yama
+kalmadığı) gözle kontrol edilmeli.
+
+**Değişiklik:** Kod değişikliği yok (madde 36'da zaten yapılmıştı);
+bu madde salt doğrulama.
+
+### 38. BUG: NVMe self-test yanlış cihaz yolu kullanıyordu (ÇÖZÜLDÜ — 2026-08-06)
+
+**Kök neden:** `ReadHealthAsync`, smartctl'in `disk.DevicePath`
+(`\\.\PhysicalDriveN`) üzerinden bazı NVMe denetleyicilerini
+tanıyamadığı durumlar için madde 34'ten kalan bir `TryReadViaScanAsync`
+geri dönüş (fallback) yoluna sahipti (`--scan` ile bulunan gerçek
+cihazı seri numarasıyla eşleştirip yeniden dener). Ama
+`GetSelfTestStatusAsync` ve `StartSelfTestAsync` bu yolu hiç
+kullanmıyor, doğrudan `disk.DevicePath` ile çağrı yapıyordu — bu
+cihazlarda smartctl "Unable to detect device type" ile boş/cihaz
+bilgisiz JSON döndürüyor (exit kodu bunu hata olarak işaretlemiyor),
+bu yüzden Teşhis sayfası her zaman "Bu disk self-test durumu
+raporlamıyor." gösteriyordu — oysa madde 34'te aynı diskte
+`nvme_self_test_log`'un VAR olduğu doğru cihaz yoluyla doğrulanmıştı.
+
+**Düzeltme:** Cihaz çözümleme tek bir yardımcı metoda çıkarıldı:
+`ResolveDeviceAsync(disk, ct)` önce `disk.DevicePath` ile `-a --json=c`
+dener; `device` alanı yoksa (veya exit kodu hata işaretliyse)
+`FindScanDeviceAsync` ile `--scan` çıktısındaki adaylar (seri no
+eşleşmesiyle, tek adaysa doğrudan) denenir. `ReadHealthAsync`,
+`StartSelfTestAsync` ve `GetSelfTestStatusAsync` artık üçü de bu tek
+metodu kullanıyor — `GetSelfTestStatusAsync`/`ReadHealthAsync` zaten
+çözümleme sırasında alınan `-a --json=c` çıktısını (ekstra çağrı
+yapmadan) doğrudan kullanıyor, `StartSelfTestAsync` ise çözümlenen
+cihaz argümanlarıyla (`-d nvme /dev/sda` gibi) `-t short/long` çağrısı
+yapıyor. Eski `TryReadViaScanAsync` kaldırıldı.
+
+**Doğrulama (gerçek diskte, uygulama çalıştırılmadan, elle smartctl
+ile — istenen doğrulama yöntemi):**
+```
+$ tools/smartctl.exe -a --json=c '\\.\PhysicalDrive0'
+{"messages":[{"string":"\\.\\PhysicalDrive0: Unable to detect device type",...}],"exit_status":1}
+   -> "device" alanı YOK, nvme_self_test_log YOK.
+
+$ MSYS_NO_PATHCONV=1 tools/smartctl.exe -a --json=c /dev/sda -d nvme
+{"exit_status":0,"device":{"name":"/dev/sda","type":"nvme",...},
+ "model_name":"KINGSTON SNV2S1000G", ..., "nvme_self_test_log": {...} }
+   -> "device" alanı VAR, nvme_self_test_log VAR.
+```
+(İlk denemede `/dev/sda` git-bash'in kendi Unix-yolu dönüştürmesiyle
+`/Device/Harddisk0/Partition0`'a çevrilip yanlışlıkla başarısız oluyordu;
+`MSYS_NO_PATHCONV=1` ile bu kabuk artefaktı bertaraf edilip gerçek
+smartctl argümanı doğrulandı — kodun kendisi `ProcessStartInfo.ArgumentList`
+kullandığından bu shell-özel sorunla karşılaşmıyor.)
+
+Bu, `ResolveDeviceAsync`'in tam olarak beklendiği gibi çalışacağını
+doğruluyor: doğrudan yol başarısız olduğunda scan yoluna düşüp
+`nvme_self_test_log`'u içeren JSON'u buluyor.
+
+**Doğrulama:** `dotnet build` (tüm çözüm): 0 hata/0 uyarı. `dotnet
+test`: **69/69 başarılı** (mevcut `SmartctlSelfTestParsingTests`
+`ParseSelfTestStatus`'u doğrudan test ediyor, cihaz çözümleme
+katmanının üstünde kaldığından etkilenmedi). Uygulama gerçek proje
+çıktısından başlatıldı, kullanıcı UAC istemini onayladı, süreç ayakta
+kaldı (`Responding=True`), yeni crash dosyası oluşmadı.
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** — Teşhis
+sayfasında "Durum:" alanının artık gerçek bir self-test geçmişi/durumu
+gösterdiği (boş mesaj yerine) gözle kontrol edilmeli.
+
+**Değişiklik:** `src/SerkonDiskSuite.Infrastructure/Smart/SmartctlSmartProvider.cs`
+
+### 39. Yazım hatası taraması (KONTROL EDİLDİ, DÜZELTME GEREKMEDİ — 2026-08-06)
+
+Kullanıcı "Kritik Uyanlar" -> "Kritik Uyarılar" yazım hatasını bildirdi
+ve tüm görünür metinlerin taranmasını istedi. `grep -r "Uyanlar"` tüm
+depoda **sıfır eşleşme** verdi; `DiagnosticsPage.xaml`'deki ilgili
+metin zaten doğru yazılmış (`"Kritik Uyarılar"`). Daha geniş bir tarama
+— `App/Views/**/*.xaml` içindeki tüm `Text=`/`Content=`/`Header=`/
+`Title=` değerleri, `App/ViewModels/**/*.cs`, `Core/Formatting/**/*.cs`,
+`Core/Reporting/**/*.cs` ve `Infrastructure/**/*.cs` içindeki tüm
+Türkçe metin literalleri — başka bir yazım hatası bulmadı.
+
+**Değişiklik:** Yok (tarama sonucu: düzeltilecek bir şey bulunamadı).
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

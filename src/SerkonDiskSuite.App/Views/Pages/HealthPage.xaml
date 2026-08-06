@@ -13,6 +13,18 @@
       d:DataContext="{d:DesignInstance Type=viewModels:HealthViewModel}"
       mc:Ignorable="d">
 
+    <Page.Resources>
+        <!-- DataGridColumn görsel ağaçta olmadığından bir kolonun Visibility'sini doğrudan
+             Page'in DataContext'ine bağlayamıyoruz. Standart çözüm bir FrameworkElement
+             proxy'sidir — AMA proxy'nin kendisi de görsel ağaca EKLENMEDİKÇE onun
+             DataContext="{Binding}" bağlaması hiçbir yerden miras alamaz (Resources
+             sözlüğündeki nesneler görsel/mantıksal ağacın parçası değildir). Bu yüzden
+             aynı örnek aşağıda gizli bir ContentControl'ün Content'i olarak da
+             kullanılıyor (bkz. DataGrid'in yanındaki ContentControl) — bu, proxy'yi
+             gerçekten ağaca bağlayıp DataContext mirasını çalışır hâle getiriyor. -->
+        <FrameworkElement x:Key="ProxyElement" DataContext="{Binding}" />
+    </Page.Resources>
+
     <ui:Card Margin="0,0,8,8">
         <Grid>
             <Grid.RowDefinitions>
@@ -112,10 +124,17 @@
 
             <!-- Gerçek zamanlı sıcaklık grafiği (son 15 dakika) -->
             <ui:Card Grid.Row="3" Margin="0,8,0,0" Padding="8" Height="160">
-                <lvc:CartesianChart Series="{Binding TemperatureSeries}"
-                                     XAxes="{Binding TemperatureXAxes}"
-                                     YAxes="{Binding TemperatureYAxes}"
-                                     SyncContext="{Binding ChartSyncObject}" />
+                <Grid>
+                    <lvc:CartesianChart Series="{Binding TemperatureSeries}"
+                                         XAxes="{Binding TemperatureXAxes}"
+                                         YAxes="{Binding TemperatureYAxes}"
+                                         SyncContext="{Binding ChartSyncObject}"
+                                         Background="Transparent" />
+                    <TextBlock Text="Veri bekleniyor..." Style="{StaticResource Muted}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               IsHitTestVisible="False"
+                               Visibility="{Binding HasTemperatureData, Converter={x:Static conv:InverseBoolToVisibilityConverter.Instance}}" />
+                </Grid>
             </ui:Card>
 
             <!-- Trend geçmişi: tüm kayıtlı geçmiş (canlı grafiğin 15 dakikalık penceresinden bağımsız) -->
@@ -129,26 +148,23 @@
                     <lvc:CartesianChart Series="{Binding HistoryTemperatureSeries}"
                                          XAxes="{Binding HistoryXAxes}"
                                          YAxes="{Binding HistoryTemperatureYAxes}"
-                                         SyncContext="{Binding ChartSyncObject}" />
+                                         SyncContext="{Binding ChartSyncObject}"
+                                         Background="Transparent" />
                 </ui:Card>
                 <ui:Card Grid.Column="1" Margin="4,0,0,0" Padding="8" Height="160">
                     <lvc:CartesianChart Series="{Binding HistoryRemainingLifeSeries}"
                                          XAxes="{Binding HistoryXAxes}"
                                          YAxes="{Binding HistoryRemainingLifeYAxes}"
-                                         SyncContext="{Binding ChartSyncObject}" />
+                                         SyncContext="{Binding ChartSyncObject}"
+                                         Background="Transparent" />
                 </ui:Card>
             </Grid>
 
             <!-- Öznitelik tablosu -->
             <TextBlock Grid.Row="6" Text="SMART Öznitelikleri" Style="{StaticResource Heading}" Margin="0,12,0,4" />
+            <ContentControl Grid.Row="7" Content="{StaticResource ProxyElement}"
+                             Width="0" Height="0" Visibility="Collapsed" IsHitTestVisible="False" />
             <DataGrid Grid.Row="7" ItemsSource="{Binding Attributes}">
-                <DataGrid.Resources>
-                    <!-- DataGridColumn görsel ağaçta olmadığından ElementName ile Page'in
-                         DataContext'ine ulaşılamıyor; standart çözüm bir FrameworkElement
-                         proxy'dir: DataContext'i {Binding} ile (DataGrid'in kendi, miras
-                         alınan DataContext'ine) bağlanır, kolonlar buna Source olarak bakar. -->
-                    <FrameworkElement x:Key="ProxyElement" DataContext="{Binding}" />
-                </DataGrid.Resources>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"
                                          Visibility="{Binding DataContext.IsIdColumnVisible, Source={StaticResource ProxyElement}, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />

@@ -61,6 +61,18 @@ public sealed class BoolToVisibilityConverter : IValueConverter
         => value is Visibility.Visible;
 }
 
+/// <summary>true -> Collapsed, false -> Visible (BoolToVisibilityConverter'ın tersi).</summary>
+public sealed class InverseBoolToVisibilityConverter : IValueConverter
+{
+    public static readonly InverseBoolToVisibilityConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is not Visibility.Visible;
+}
+
 /// <summary>DiskBusType -> standart arayüz kısaltması (NVMe, SATA, USB, SAS, SCSI, Bilinmiyor).</summary>
 public sealed class BusTypeToStringConverter : IValueConverter
 {
