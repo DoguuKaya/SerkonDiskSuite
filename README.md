@@ -15,7 +15,7 @@ tek bir native uygulamada toplar. .NET 8 + WPF ile yazılmıştır.
 - **Modern koyu tema arayüz**, çoklu disk desteği.
 
 ## Ekran görüntüsü
-_(Buraya derledikten sonra bir ekran görüntüsü ekleyin: `docs/screenshot.png`)_
+![Serkon Disk Suite](docs/screenshot.png)
 
 ## Gereksinimler
 - Windows 10/11 (x64)
