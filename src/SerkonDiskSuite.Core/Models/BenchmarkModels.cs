@@ -19,16 +19,24 @@ public sealed record BenchmarkOptions
     public int RandomBlockSize { get; init; } = 4 * 1024;
 
     /// <summary>
-    /// Aynı anda kuyruğa alınacak (havada bekleyen) I/O isteği sayısı (Queue Depth).
-    /// CrystalDiskMark'taki "Q" değeriyle eşdeğerdir. Varsayılan 1 (Q1, eski davranış).
+    /// Sıralı testlerde (SequentialRead/Write) aynı anda kuyruğa alınacak I/O isteği sayısı
+    /// (Queue Depth) — CrystalDiskMark'taki "Q" değeri. Rastgele testleri etkilemez; gerçek
+    /// CrystalDiskMark'ta "SEQ1M Q8T1" gibi bir profil yalnızca sıralı testlere uygulanır,
+    /// aynı anda seçili olabilecek rastgele profilin Q/T'sine dokunmaz (bkz. madde C1).
+    /// Varsayılan 1 (Q1, eski tek-istekli davranış).
     /// </summary>
-    public int QueueDepth { get; init; } = 1;
+    public int SequentialQueueDepth { get; init; } = 1;
 
-    /// <summary>
-    /// Testi çalıştıracak eşzamanlı iş parçacığı sayısı (Thread count). CrystalDiskMark'taki
-    /// "T" değeriyle eşdeğerdir. Varsayılan 1 (T1, eski davranış).
-    /// </summary>
-    public int ThreadCount { get; init; } = 1;
+    /// <summary>Sıralı testlerde eşzamanlı iş parçacığı sayısı (Thread count) — "T" değeri.
+    /// Varsayılan 1.</summary>
+    public int SequentialThreadCount { get; init; } = 1;
+
+    /// <summary>Rastgele testlerde (RandomRead/Write) kuyruk derinliği. Sıralı testleri etkilemez.
+    /// Varsayılan 1.</summary>
+    public int RandomQueueDepth { get; init; } = 1;
+
+    /// <summary>Rastgele testlerde eşzamanlı iş parçacığı sayısı. Varsayılan 1.</summary>
+    public int RandomThreadCount { get; init; } = 1;
 
     /// <summary>
     /// Uygulanan hazır profilin adı (ör. "SEQ1M Q8T1"); kullanıcı manuel değer girdiyse

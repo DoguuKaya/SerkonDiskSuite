@@ -22,22 +22,24 @@ public static class BenchmarkProfiles
 
     public static IReadOnlyList<BenchmarkProfile> All { get; } = [Seq1MQ8T1, Seq1MQ1T1, Rnd4KQ32T16, Rnd4KQ1T1];
 
-    /// <summary>Profili options'a uygular: rastgele profil yalnızca rastgele blok boyutunu,
-    /// sıralı profil yalnızca sıralı blok boyutunu değiştirir; QueueDepth/ThreadCount ve
+    /// <summary>Profili options'a uygular: rastgele profil yalnızca rastgele blok boyutu/Q/T'sini,
+    /// sıralı profil yalnızca sıralı blok boyutu/Q/T'sini değiştirir — diğer kategori (ve onun
+    /// Q/T'si) hiç dokunulmadan kalır (bkz. madde C1: gerçek CrystalDiskMark'ta "SEQ1M Q8T1"
+    /// yalnızca sıralı testleri, "RND4K Q32T16" yalnızca rastgele testleri etkiler).
     /// ProfileName her durumda güncellenir.</summary>
     public static BenchmarkOptions Apply(BenchmarkOptions options, BenchmarkProfile profile) => profile.IsRandom
         ? options with
         {
             RandomBlockSize = profile.BlockSize,
-            QueueDepth = profile.QueueDepth,
-            ThreadCount = profile.ThreadCount,
+            RandomQueueDepth = profile.QueueDepth,
+            RandomThreadCount = profile.ThreadCount,
             ProfileName = profile.Name,
         }
         : options with
         {
             SequentialBlockSize = profile.BlockSize,
-            QueueDepth = profile.QueueDepth,
-            ThreadCount = profile.ThreadCount,
+            SequentialQueueDepth = profile.QueueDepth,
+            SequentialThreadCount = profile.ThreadCount,
             ProfileName = profile.Name,
         };
 }

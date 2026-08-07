@@ -49,6 +49,85 @@ public sealed class NullToVisibilityConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>Boş olmayan koleksiyon -> Visible, null veya boş koleksiyon -> Collapsed
+/// (NullToVisibilityConverter'ın aksine, dolu ama sıfır elemanlı koleksiyonları da gizler).</summary>
+public sealed class CollectionToVisibilityConverter : IValueConverter
+{
+    public static readonly CollectionToVisibilityConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is System.Collections.ICollection { Count: > 0 } ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>Boş (veya null) koleksiyon -> Visible, dolu koleksiyon -> Collapsed
+/// (CollectionToVisibilityConverter'ın tersi — "liste boş" mesajları için).</summary>
+public sealed class InverseCollectionToVisibilityConverter : IValueConverter
+{
+    public static readonly InverseCollectionToVisibilityConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is System.Collections.ICollection { Count: > 0 } ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>null -> true, değer varsa -> false. Yüzdesi bilinmeyen bir işlemin ilerleme
+/// çubuğunu "belirsiz" (IsIndeterminate) moda almak için kullanılır.</summary>
+public sealed class IsNullConverter : IValueConverter
+{
+    public static readonly IsNullConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is null;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>bool'un tersini döner (IsEnabled gibi Visibility olmayan hedefler için —
+/// InverseBoolToVisibilityConverter'ın aksine bir Visibility değil, doğrudan bool üretir).</summary>
+public sealed class InverseBooleanConverter : IValueConverter
+{
+    public static readonly InverseBooleanConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is not true;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is not true;
+}
+
+/// <summary>MultiBinding: [0]=IsRunning (bool), [1]=PercentRemaining (int?). İkisi de
+/// sağlanmışsa (çalışıyor VE yüzde biliniyorsa) Visible, aksi halde Collapsed — self-test
+/// "Kalan: %X" satırı için (bkz. madde B1/B2).</summary>
+public sealed class RunningWithKnownPercentToVisibilityConverter : IMultiValueConverter
+{
+    public static readonly RunningWithKnownPercentToVisibilityConverter Instance = new();
+
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        => values is [true, int] ? Visibility.Visible : Visibility.Collapsed;
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>RunningWithKnownPercentToVisibilityConverter'ın tersi: çalışıyor ama yüzde
+/// bilinmiyorsa Visible ("İlerleme bilgisi bu diskte raporlanmıyor" mesajı için).</summary>
+public sealed class RunningWithUnknownPercentToVisibilityConverter : IMultiValueConverter
+{
+    public static readonly RunningWithUnknownPercentToVisibilityConverter Instance = new();
+
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        => values is [true, null] ? Visibility.Visible : Visibility.Collapsed;
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>true -> Visible, false -> Collapsed.</summary>
 public sealed class BoolToVisibilityConverter : IValueConverter
 {

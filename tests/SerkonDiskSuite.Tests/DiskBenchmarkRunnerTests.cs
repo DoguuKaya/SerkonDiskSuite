@@ -33,8 +33,10 @@ public class DiskBenchmarkRunnerTests : IDisposable
         Passes = 1,
         SequentialBlockSize = 64 * 1024,
         RandomBlockSize = 4 * 1024,
-        QueueDepth = queueDepth,
-        ThreadCount = threadCount,
+        SequentialQueueDepth = queueDepth,
+        SequentialThreadCount = threadCount,
+        RandomQueueDepth = queueDepth,
+        RandomThreadCount = threadCount,
     };
 
     [Fact]

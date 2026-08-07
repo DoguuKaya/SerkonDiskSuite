@@ -206,7 +206,11 @@ public partial class HealthViewModel : ObservableObject, IDisposable
                     if (point.Timestamp >= cutoff)
                     {
                         _temperaturePoints.Add(new DateTimePoint(point.Timestamp.LocalDateTime, temp));
-                        HasTemperatureData = true;
+                        // LineSeries GeometrySize=0 (madde 15) olduğundan tek nokta hiçbir şey
+                        // çizmez (çizgi için en az 2 nokta gerekir); yer tutucu bu yüzden 2.
+                        // noktaya kadar görünür kalır (bkz. madde A1).
+                        if (_temperaturePoints.Count >= 2)
+                            HasTemperatureData = true;
                     }
                 }
                 if (point.RemainingLifePercent is { } life)
@@ -288,7 +292,8 @@ public partial class HealthViewModel : ObservableObject, IDisposable
                             while (_temperaturePoints.Count > MaxPoints)
                                 _temperaturePoints.RemoveAt(0);
                             _historyTemperaturePoints.Add(new DateTimePoint(health.Timestamp.LocalDateTime, temp));
-                            HasTemperatureData = true;
+                            if (_temperaturePoints.Count >= 2)
+                                HasTemperatureData = true;
                         }
                         if (health.RemainingLifePercent is { } life)
                         {

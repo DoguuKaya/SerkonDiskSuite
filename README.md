@@ -10,12 +10,15 @@ tek bir native uygulamada toplar. .NET 8 + WPF ile yazılmıştır.
 
 ## Özellikler
 - **Disk Sağlığı (SMART):** Sıcaklık, kalan ömür, açılma sayısı, güvensiz kapanma, tüm SMART öznitelikleri. NVMe ve SATA destekli.
-- **Benchmark:** Sıralı/rastgele okuma-yazma testi (MB/s ve IOPS), cache-bypass ile gerçekçi sonuçlar.
-- **Sistem Bilgisi:** İşletim sistemi, CPU, anakart, BIOS.
+- **Gerçek zamanlı sıcaklık grafiği** ve diskin tüm zamanlar trend geçmişi (sıcaklık + kalan ömür).
+- **Teşhis:** SMART self-test başlatma (kısa/uzun) ve sonuçları, firmware sürümü, NVMe kritik uyarı bayrakları.
+- **Benchmark:** Sıralı/rastgele okuma-yazma testi (MB/s ve IOPS), cache-bypass ile gerçekçi sonuçlar, hazır CrystalDiskMark profilleri (SEQ1M Q8T1, RND4K Q32T16 vb.) ve sıralı/rastgele için ayrı ayarlanabilir kuyruk derinliği (Q) / iş parçacığı (T).
+- **Rapor dışa aktarma:** Disk + SMART + benchmark özetini metin/JSON olarak kaydetme veya panoya kopyalama.
+- **Sistem Bilgisi:** İşletim sistemi, CPU, anakart, BIOS, RAM.
 - **Modern koyu tema arayüz**, çoklu disk desteği.
 
 ## Ekran görüntüsü
-![Serkon Disk Suite](docs/screenshot.png)
+![Serkon Disk Suite](docs/SCREENSHOT.png)
 
 ## Gereksinimler
 - Windows 10/11 (x64)

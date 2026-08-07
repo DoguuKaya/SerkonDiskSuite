@@ -21,7 +21,9 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] private string? _firmwareVersion;
     [ObservableProperty] private ObservableCollection<string> _criticalWarningFlags = [];
-    [ObservableProperty] private SelfTestStatus? _selfTestStatus;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(StartSelfTestCommand))]
+    private SelfTestStatus? _selfTestStatus;
     [ObservableProperty] private SelfTestType _selectedSelfTestType = SelfTestType.Short;
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty]
@@ -70,7 +72,7 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
         }
     }
 
-    private bool CanStartSelfTest => !IsBusy;
+    private bool CanStartSelfTest => !IsBusy && SelfTestStatus?.IsRunning != true;
 
     [RelayCommand(CanExecute = nameof(CanStartSelfTest))]
     private async Task StartSelfTestAsync()

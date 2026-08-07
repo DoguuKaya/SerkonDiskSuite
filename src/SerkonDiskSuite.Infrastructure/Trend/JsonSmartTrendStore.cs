@@ -13,9 +13,21 @@ public sealed class JsonSmartTrendStore : ISmartTrendStore
 {
     private const int MaxStoredPoints = 20_000;
 
-    // Aynı anda birden çok disk için okuma/yazma olabileceğinden tek bir kilitle korunur;
-    // yazım sıklığı (disk başına ~5 sn'de bir) düşük olduğundan tek kilit yeterlidir.
-    private static readonly SemaphoreSlim FileLock = new(1, 1);
+    // Kullanıcının aynı anda birden fazla (genellikle yönetici hakkıyla açılmış, kapatılamayan
+    // eski) SerkonDiskSuite.exe sürecine sahip olması bu ortamda alışılmış bir durum (bkz.
+    // PROGRESS.md). Eski bir in-process SemaphoreSlim yalnızca AYNI süreç içindeki eşzamanlılığı
+    // korur; SÜREÇLER ARASI korumayı sağlamaz. İki süreç aynı anda dosyayı oku-değiştir-yaz
+    // yaparsa klasik "lost update" oluşur: geç kaydeden, diğerinin eklediği tüm yeni noktaları
+    // (ve bazen daha eski geçmişi) sessizce siler — tam olarak gözlemlenen "geçmiş sıfırlandı"
+    // belirtisi. Düzeltme: dosyayı `FileShare.None` ile açıp okuma+değiştirme+yazmanın TAMAMINI
+    // tek bir işletim sistemi seviyesi özel kilit altında tutmak; bu, aynı süreç içindeki
+    // eşzamanlılığı da otomatik olarak kapsadığından ayrı bir in-process kilide gerek kalmıyor.
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(50);
+    // Gerçek kullanımda tek bir disk için ~5 sn'de bir çağrı olur, bu yüzden cömert bir üst
+    // sınır (yaklaşık 15 sn) güvenli: normal senaryoda birkaç denemeden fazla sürmez, ama
+    // (test paketindeki gibi) çok sayıda sürecin GERÇEKTEN aynı anda yarıştığı uç durumlarda
+    // erken pes edip veri kaybına yol açmak yerine sırasını beklemeyi tercih eder.
+    private const int MaxOpenAttempts = 300;
 
     private readonly string _baseDirectory;
 
@@ -32,17 +44,12 @@ public sealed class JsonSmartTrendStore : ISmartTrendStore
         if (!File.Exists(path))
             return [];
 
-        await FileLock.WaitAsync(ct);
-        try
-        {
-            await using var stream = File.OpenRead(path);
-            var points = await JsonSerializer.DeserializeAsync<List<SmartTrendPoint>>(stream, cancellationToken: ct);
-            return points ?? [];
-        }
-        finally
-        {
-            FileLock.Release();
-        }
+        await using var stream = await OpenExclusiveAsync(path, ct);
+        if (stream.Length == 0)
+            return [];
+
+        var points = await JsonSerializer.DeserializeAsync<List<SmartTrendPoint>>(stream, cancellationToken: ct);
+        return points ?? [];
     }
 
     public async Task AppendAsync(string diskKey, SmartTrendPoint point, CancellationToken ct = default)
@@ -50,26 +57,39 @@ public sealed class JsonSmartTrendStore : ISmartTrendStore
         var path = GetFilePath(diskKey);
         Directory.CreateDirectory(_baseDirectory);
 
-        await FileLock.WaitAsync(ct);
-        try
+        await using var stream = await OpenExclusiveAsync(path, ct);
+        List<SmartTrendPoint> points = stream.Length > 0
+            ? await JsonSerializer.DeserializeAsync<List<SmartTrendPoint>>(stream, cancellationToken: ct) ?? []
+            : [];
+
+        points.Add(point);
+        if (points.Count > MaxStoredPoints)
+            points.RemoveRange(0, points.Count - MaxStoredPoints);
+
+        stream.SetLength(0);
+        stream.Position = 0;
+        await JsonSerializer.SerializeAsync(stream, points, cancellationToken: ct);
+        await stream.FlushAsync(ct);
+    }
+
+    /// <summary>
+    /// Dosyayı <see cref="FileShare.None"/> ile açar: aynı anda başka bir süreç (ya da aynı
+    /// süreçteki başka bir çağrı) aynı dosyayı açmaya çalışırsa <see cref="IOException"/> alır.
+    /// Kısa bir aralıkla yeniden denenir; bu, sürece özgü bir kilit yerine işletim sisteminin
+    /// kendi karşılıklı dışlama mekanizmasını kullanarak süreçler arası güvenliği sağlar.
+    /// </summary>
+    private static async Task<FileStream> OpenExclusiveAsync(string path, CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
         {
-            List<SmartTrendPoint> points = [];
-            if (File.Exists(path))
+            try
             {
-                await using var readStream = File.OpenRead(path);
-                points = await JsonSerializer.DeserializeAsync<List<SmartTrendPoint>>(readStream, cancellationToken: ct) ?? [];
+                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             }
-
-            points.Add(point);
-            if (points.Count > MaxStoredPoints)
-                points.RemoveRange(0, points.Count - MaxStoredPoints);
-
-            await using var writeStream = File.Create(path);
-            await JsonSerializer.SerializeAsync(writeStream, points, cancellationToken: ct);
-        }
-        finally
-        {
-            FileLock.Release();
+            catch (IOException) when (attempt < MaxOpenAttempts)
+            {
+                await Task.Delay(RetryDelay, ct);
+            }
         }
     }
 

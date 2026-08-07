@@ -41,12 +41,17 @@ smartmontools'u https://www.smartmontools.org/ adresinden indirin, `smartctl.exe
 `.gitignore`'da olduğu için repoya girmez; kullanıcı kendi indirir (GPL lisansı).
 
 ## Yapılacaklar / genişleme fikirleri
-- Sıcaklık grafiği (gerçek zamanlı izleme, LiveCharts2)
-- PCIe link speed/width tespiti (şu an TransferMode boş)
-- Disk format/partition işlemleri (Disk Management özelliği) — dikkatli, yıkıcı işlem
-- SMART verisini periyodik loglama + trend
-- Firmware güncelleme uyarısı (üretici API'leri)
-- Çoklu dil (şu an Türkçe UI)
+- Disk format/partition işlemleri (Disk Management özelliği) — kasıtlı olarak henüz
+  başlanmadı, yıkıcı işlem olduğu için kullanıcıyla ayrıca tasarım konuşulacak.
+- Firmware güncelleme uyarısı (üretici API'leri) — henüz başlanmadı.
+- NVMe self-test ÇALIŞIRKEN kalan yüzdeyi taşıyan JSON alanı bu makinede/donanımda
+  doğrulanamadıysa (bkz. PROGRESS.md ilgili madde), gerçek bir self-testin tam
+  ilerleme döngüsü izlenerek alan adı bulunmalı.
+- Çoklu dil (şu an Türkçe UI) — kullanıcı kararıyla bu turlarda atlandı, öncelikli değil.
+
+Tamamlananlar (sıcaklık grafiği + trend loglama, PCIe link speed/width, Teşhis
+sayfası/self-test, rapor dışa aktarma, hazır benchmark profilleri, WPF-UI
+migrasyonu) için bkz. `PROGRESS.md`.
 
 ## Kod stili
 - Nullable etkin, warnings-as-errors (Core/Infrastructure).

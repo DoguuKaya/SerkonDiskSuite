@@ -19,6 +19,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -40,6 +41,7 @@
                 <TextBlock Text="   Blok boyutu (rastgele): " VerticalAlignment="Center" Margin="16,0,0,0" />
                 <ComboBox ItemsSource="{Binding BlockSizeOptionsKiB}"
                           SelectedItem="{Binding RandomBlockSizeKiB}"
+                          IsEnabled="{Binding IsRandomLocked, Converter={x:Static conv:InverseBooleanConverter.Instance}}"
                           Width="90" VerticalAlignment="Center">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
@@ -56,19 +58,36 @@
                           Width="140" VerticalAlignment="Center" />
             </StackPanel>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8">
+            <!-- Sıralı/rastgele için ayrı Q(kuyruk derinliği)/T(iş parçacığı) — madde C1.
+                 Bir profil seçiliyse, o profilin belirlediği kategori salt-okunur (madde C2). -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="Sıralı Q/T: " VerticalAlignment="Center" />
+                <TextBox Text="{Binding SequentialQueueDepth}" Width="36" VerticalAlignment="Center"
+                          IsEnabled="{Binding IsSequentialLocked, Converter={x:Static conv:InverseBooleanConverter.Instance}}" />
+                <TextBlock Text=" / " VerticalAlignment="Center" />
+                <TextBox Text="{Binding SequentialThreadCount}" Width="36" VerticalAlignment="Center"
+                          IsEnabled="{Binding IsSequentialLocked, Converter={x:Static conv:InverseBooleanConverter.Instance}}" />
+                <TextBlock Text="   Rastgele Q/T: " VerticalAlignment="Center" Margin="16,0,0,0" />
+                <TextBox Text="{Binding RandomQueueDepth}" Width="36" VerticalAlignment="Center"
+                          IsEnabled="{Binding IsRandomLocked, Converter={x:Static conv:InverseBooleanConverter.Instance}}" />
+                <TextBlock Text=" / " VerticalAlignment="Center" />
+                <TextBox Text="{Binding RandomThreadCount}" Width="36" VerticalAlignment="Center"
+                          IsEnabled="{Binding IsRandomLocked, Converter={x:Static conv:InverseBooleanConverter.Instance}}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8">
                 <ui:Button Content="Testi Başlat" Appearance="Primary" Command="{Binding StartCommand}" />
                 <ui:Button Content="İptal" Command="{Binding CancelCommand}" Margin="8,0,0,0"
                            Appearance="Danger"
                            Visibility="{Binding IsRunning, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
             </StackPanel>
 
-            <ProgressBar Grid.Row="3" Margin="0,8" Minimum="0" Maximum="100"
+            <ProgressBar Grid.Row="4" Margin="0,8" Minimum="0" Maximum="100"
                          Value="{Binding ProgressPercent, Mode=OneWay}" />
-            <TextBlock Grid.Row="4" Text="{Binding ProgressMessage}" Style="{StaticResource Muted}" />
+            <TextBlock Grid.Row="5" Text="{Binding ProgressMessage}" Style="{StaticResource Muted}" />
 
             <!-- Sonuç kartları: kalan tüm dikey alanı doldurur, gerekirse kendi içinde kaydırır -->
-            <ScrollViewer Grid.Row="5" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer Grid.Row="6" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding Results}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -77,8 +96,12 @@
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Kind, Converter={StaticResource BenchmarkTestKindToString}}"
                                                    FontWeight="SemiBold" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding ProfileName, StringFormat=' ({0})'}"
-                                                   Style="{StaticResource Muted}" VerticalAlignment="Center" />
+                                        <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center">
+                                            <Run Text=" (" /><Run Text="{Binding ProfileName, Mode=OneWay}" />
+                                            <Run Text=" Q" /><Run Text="{Binding QueueDepth, Mode=OneWay}" />
+                                            <Run Text="T" /><Run Text="{Binding ThreadCount, Mode=OneWay}" />
+                                            <Run Text=")" />
+                                        </TextBlock>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                         <TextBlock FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"

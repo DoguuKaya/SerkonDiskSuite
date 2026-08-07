@@ -97,9 +97,11 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         }
 
         bool isRandom = kind is BenchmarkTestKind.RandomRead or BenchmarkTestKind.RandomWrite;
+        int resultQueueDepth = isRandom ? options.RandomQueueDepth : options.SequentialQueueDepth;
+        int resultThreadCount = isRandom ? options.RandomThreadCount : options.SequentialThreadCount;
         return new BenchmarkResult(
             kind, bestThroughput, isRandom ? bestIops : null, bestDuration,
-            options.QueueDepth, options.ThreadCount, options.ProfileName);
+            resultQueueDepth, resultThreadCount, options.ProfileName);
     }
 
     /// <summary>
@@ -149,7 +151,9 @@ public sealed class DiskBenchmarkRunner : IBenchmarkRunner
         long bytesProcessed = 0;
         long completed = 0;
         int reportEvery = Math.Max(1, totalBlocks / 50);
-        int maxConcurrency = Math.Max(1, options.QueueDepth) * Math.Max(1, options.ThreadCount);
+        int queueDepth = isRandom ? options.RandomQueueDepth : options.SequentialQueueDepth;
+        int threadCount = isRandom ? options.RandomThreadCount : options.SequentialThreadCount;
+        int maxConcurrency = Math.Max(1, queueDepth) * Math.Max(1, threadCount);
 
         var sw = Stopwatch.StartNew();
 

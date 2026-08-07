@@ -1510,6 +1510,228 @@ Türkçe metin literalleri — başka bir yazım hatası bulmadı.
 
 **Değişiklik:** Yok (tarama sonucu: düzeltilecek bir şey bulunamadı).
 
+### 40. A/B/C/D turu — grafik boş kutu, trend sıfırlanması, self-test UI, benchmark Q/T ayrımı, depo bakımı (2026-08-07)
+
+Kullanıcının bu turda bildirdiği 4 görünen sorun (A), self-test ilerleme
+yüzdesi (B), benchmark profil sadakati (C) ve depo bakımı (D) maddeleri
+tek bir oturumda ele alındı. Maliyet nedeniyle her madde için ayrı
+launch+UAC döngüsü yerine **gruplu doğrulama** yapıldı (kullanıcıyla
+konuşulup onaylandı): kod madde madde yazılıp `dotnet build`/`dotnet
+test` her seferinde çalıştırıldı, gerçek uygulama launch+log
+karşılaştırması A1/A2 için bir kez, kalan tüm değişiklikler için bir
+kez daha (toplam 2 launch) yapıldı.
+
+**A1 — Canlı sıcaklık grafiği boş kutu:** Geçici tanılama (HealthPage'e
+`x:Name`'ler + `OnNavigatedToAsync`'te 100/600/1500/3000ms'de
+`ActualHeight`/`Visibility`/seri nokta sayısını dosyaya döken kod, iş
+bitince tamamen kaldırıldı) gerçek uygulamada çalıştırılıp şunu
+kanıtladı: yerleşim/boyut/`Visibility` bağlamaları HER ZAMAN doğruydu
+(Card=160, Grid=142, Chart=142x892, Visible) — sorun görsel/bağlama
+değil, veri semantiğindeydi. `HealthViewModel`'deki üç `LineSeries`
+`GeometrySize=0` ile oluşturulmuş (nokta işaretçisi çizilmiyor, yalnızca
+çizgi); bu yüzden yalnızca 1 nokta varken (`HasTemperatureData` ilk
+noktada `true` oluyordu) ne çizgi (2 nokta gerekir) ne işaretçi
+çizilebiliyor, "Veri bekleniyor..." yer tutucusu da zaten gizlenmiş
+oluyordu — sonuç: gerçekten boş görünen bir pencere. Düzeltme:
+`HasTemperatureData`, hem geçmiş yükleme hem canlı poll yolunda artık
+yalnızca `_temperaturePoints.Count >= 2` olduğunda `true` oluyor; yer
+tutucu, anlamlı bir çizgi çizilebilene kadar görünür kalıyor.
+
+**A2 — Trend geçmişi sıfırlanmış görünüyordu:** Kullanıcının hipotezi
+(madde 38'in cihaz çözümlemesi anahtarı değiştirmiş olabilir) **yanlış
+çıktı** — `GetDiskKey`, WMI'dan gelen `disk.SerialNumber`'ı kullanıyor,
+bu smartctl'in cihaz çözümlemesinden tamamen bağımsız; `trend/` klasörü
+tek bir dosya gösterdi, anahtar hiç değişmemişti. Gerçek kök neden
+`JsonSmartTrendStore`'da bulundu: `AppendAsync` her çağrıda dosyanın
+TAMAMINI oku-değiştir-yaz yapıyor, bunu koruyan `SemaphoreSlim` ise
+yalnızca **AYNI süreç içinde** eşzamanlılığı önlüyor — süreçler arası
+korumayı SAĞLAMIYOR. Bu ortamda (PROGRESS.md'de tekrar tekrar not
+düşüldüğü gibi) kullanıcı genelde birden fazla, kapatılamayan yönetici
+sürecine sahip oluyor; bunlardan ikisi aynı anda dosyayı oku-yaz
+yaptığında klasik "lost update" oluşuyor — geç kaydeden, diğerinin
+eklediği (bazen çok daha fazla geçmiş içeren) veriyi sessizce siliyor.
+Kanıt: gerçek trend dosyası içeriği tam olarak 2026-08-04 16:15'te
+duruyordu (WPF-UI migrasyonunun olduğu tarih), ama dosyanın mtime'ı
+2026-08-05'ti — YENİ yazımlar oluyordu ama İÇERİK büyümüyordu, tam bir
+"lost update" imzası. **Düzeltme:** `JsonSmartTrendStore.LoadAsync`/
+`AppendAsync` artık dosyayı `FileShare.None` ile açıp okuma+değiştirme+
+yazmanın TAMAMINI tek bir işletim sistemi seviyesi özel kilit altında
+tutuyor (aynı süreç içi eşzamanlılığı da otomatik kapsıyor, ayrı bir
+`SemaphoreSlim`'e gerek kalmadı); `IOException` alınırsa 50ms aralıkla
+(en fazla 300 deneme, ~15 sn) yeniden dener. Yeni
+`JsonSmartTrendStoreTests` (3 test, ikisi temel Append/Load, biri
+**iki ayrı `JsonSmartTrendStore` örneğinin aynı dosyaya 40'ar noktayı
+eşzamanlı yazması** — gerçek süreçler arası yarışı taklit ediyor)
+başlangıçta MaxOpenAttempts=40 ile ARA SIRA gerçekten flake verdi (80
+eşzamanlı çağrı altında 2 sn'lik bekleme yetersiz kaldı); 300'e
+çıkarılınca 3 art arda çalıştırmada da kararlı geçti.
+
+Ayrıca canlı SMART izleme döngüsünün HİÇ BAŞLAMADIĞI keşfedildi (bu da
+A2'nin neden "sıfırlanmış" GÖRÜNDÜĞÜNÜ tam açıklıyor: trend dosyası
+günlerce hiç büyümemişti). `MainWindow.OnLoaded`, `RootNavigation.
+Navigate(typeof(HealthPage), null)`'ı doğrudan çağırıyor; WPF-UI'nin
+`INavigationAware.OnNavigatedToAsync`'i kullanıcı bir menü öğesine
+tıkladığında güvenilir çalışıyor (madde 14/17) ama bu programatik, ilk
+(pencere daha `Loaded` olurken yapılan) `Navigate` çağrısında tetiklenip
+tetiklenmediği bu kütüphane sürümünde doğrulanamadı/belgelenmemiş —
+gerçek ölçüm (uygulama dakikalarca açık kalsa da trend dosyası hiç
+büyümedi) tetiklenmediğini gösterdi. **Düzeltme:** `MainWindow`
+artık `HealthViewModel`'i DI'dan alıyor ve `OnLoaded`'da
+`RootNavigation.Navigate(...)`'ten hemen sonra `_healthViewModel.
+SetMonitoringActive(true)` çağrısını da açıkça yapıyor;
+`HealthViewModel.StartMonitoring`'in zaten "çalışıyorsa yok say"
+koruması olduğundan WPF-UI'nin kendi (varsa) çağrısıyla çakışmıyor.
+
+**Doğrulama (A1+A2, gerçek uygulama üzerinde):** `dotnet build`/`dotnet
+test`: 0 hata, 72/72. Launch öncesi/sonrası log karşılaştırması: fark
+yok. Trend dosyasının canlı poll ile büyüdüğü bu oturumda **doğrudan
+gözlemlenemedi** (birkaç dakikalık gözlem penceresinde smartctl'in
+`--scan` fallback'i her okumada ekstra çağrı gerektirdiğinden gecikme
+olabilir) — kod seviyesinde kök neden kanıtlı (yukarıdaki tetiklenme
+kanıtı) ve düzeltme mantığı sağlam, ama **kullanıcı birkaç saat sonra
+`%LOCALAPPDATA%\SerkonDiskSuite\trend\` dosyasının gerçekten büyüdüğünü
+elle doğrulamalı**.
+
+**A3 — "Kritik Uyarılar" boşken de görünüyordu:** `DiagnosticsPage.xaml`
+başlığın görünürlüğünü `CriticalWarningFlags` koleksiyonunun `null`
+olup olmamasına bağlıyordu (`NullToVisibilityConverter`) — koleksiyon
+hep dolu bir `ObservableCollection` (asla null, sadece boş) olduğundan
+her zaman görünür kalıyordu. Yeni `CollectionToVisibilityConverter`/
+`InverseCollectionToVisibilityConverter` (`Count>0` kontrolü) eklendi;
+liste boşsa "Kritik uyarı yok" metni gösteriliyor, StackPanel'in kendisi
+artık `Health` null olmadıkça (yani veri geldiyse) her zaman görünür.
+
+**A4 — Benchmark varsayılan olarak sistem diskini seçiyordu:**
+`BenchmarkViewModel.SetDisk`, `AvailableDriveLetters.FirstOrDefault()`
+ile ilk harfi (genelde `C:`) seçiyordu. Artık sistem sürücüsü OLMAYAN
+ilk harf tercih ediliyor (`IsSystemDriveLetter` yardımcı metoduyla),
+diskte başka harf yoksa sistem sürücüsüne düşülüyor (bu durumda uyarı
+zaten haklı).
+
+**B1 — NVMe self-test ilerleme yüzdesi:** Gerçek bir kısa self-test
+başlatmak yönetici hakkı gerektiriyor (`smartctl -t short` yükseltilmemiş
+kabuktan `Error=5`/erişim engellendi verdi) ve bu ajan oturumu rastgele
+komutları yükseltemiyor (güvenlik kısıtı, PowerShell `-Verb RunAs`
+engellendi) — yalnızca zaten yönetici olarak çalışan uygulamanın kendisi
+tetikleyebilir. Kullanıcıdan Teşhis sayfasında "Başlat" tıklaması istendi
+(iki kez), test bu oturum içinde başlatılamadı. **Alan adı bu turda
+doğrulanamadı.** Kullanıcının kendi kontingency talimatına uyarak: UI
+artık self-test çalışırken `PercentRemaining` `null` kaldığı sürece
+"İlerleme bilgisi bu diskte raporlanmıyor" gösteriyor (yeni
+`RunningWithKnownPercentToVisibilityConverter`/
+`RunningWithUnknownPercentToVisibilityConverter` `IMultiValueConverter`
+çiftiyle, `IsRunning`+`PercentRemaining`'in ikisine birden bakarak).
+Bu madde CLAUDE.md'nin "Yapılacaklar" listesine taşındı — gerçek bir
+self-test'in tam döngüsü izlenip alan adı bulunmalı.
+
+**B2 — Self-test çalışırken UI durumu:** `DiagnosticsViewModel.
+CanStartSelfTest` artık `SelfTestStatus?.IsRunning != true`'yu da
+kontrol ediyor (`SelfTestStatus`'a `[NotifyCanExecuteChangedFor]`
+eklendi) — test çalışırken "Başlat" butonu artık gerçekten devre dışı
+kalıyor (öncesinde yalnızca ilk `StartSelfTestAsync` çağrısı süresince
+devre dışıydı, test ARKA PLANDA sürerken tekrar tıklanabiliyordu).
+Yeni bir `ProgressBar` eklendi: yüzde biliniyorsa dolu, bilinmiyorsa
+(`IsNullConverter`) belirsiz (`IsIndeterminate`) modda. Test bitince
+zaten mevcut `PollLoopAsync` otomatik olarak `SelfTestStatus`'u
+güncelleyip döngüyü durduruyordu (madde 24'ten), bu davranış korundu.
+
+**C1 — Benchmark Q/T sıralı/rastgele ayrımı:** `BenchmarkOptions`'taki
+tek `QueueDepth`/`ThreadCount` kaldırılıp `SequentialQueueDepth`/
+`SequentialThreadCount`/`RandomQueueDepth`/`RandomThreadCount`'a
+bölündü (eski alanlar geriye uyumluluk için tutulmadı — tüm tüketiciler
+bu depoda olduğundan ve proje YAGNI/temiz-refactor stilini
+benimsediğinden ölü alan bırakılmadı, bkz. madde 38'in de aynı şekilde
+eski `TryReadViaScanAsync`'i tamamen kaldırması). `DiskBenchmarkRunner`
+artık test türüne göre (`isRandom`) doğru Q/T çiftini seçiyor —
+hem `RunSinglePassAsync`'in eşzamanlılık derecesinde hem
+`BenchmarkResult`'a yazılan Q/T'de. `BenchmarkProfiles.Apply` artık
+yalnızca ilgili kategoriyi günceller ("SEQ1M Q8T1" artık yalnızca
+sıralı testleri, "RND4K Q32T16" yalnızca rastgele testleri etkiliyor).
+`BenchmarkProfilesTests` güncellendi + çapraz kategori sızıntısı
+olmadığını doğrulayan assertion'lar eklendi; `DiskBenchmarkRunnerTests`
+yeni alan adlarına taşındı.
+
+**C2 — Profil seçiliyken ilgili alanlar salt-okunur:**
+`BenchmarkViewModel`'e `IsSequentialLocked`/`IsRandomLocked` computed
+property'leri eklendi (`SelectedProfile` değiştiğinde bildirim alır);
+bir profil seçiliyken YALNIZCA o profilin kategorisine ait alanlar
+(Q/T metin kutuları, rastgele ise blok boyutu ComboBox'ı da) devre dışı
+görünüyor, diğer kategori serbest kalıyor (C1'in "kategoriler bağımsız"
+ilkesiyle tutarlı). Yeni `InverseBooleanConverter` eklendi (`IsEnabled`
+bir `bool` beklediğinden, var olan `InverseBoolToVisibilityConverter`
+`Visibility` döndürdüğü için burada kullanılamazdı — bu ayrımı gözden
+kaçırıp önce yanlış converter'ı bağlamıştım, derleme hatası vermeden
+fark ettim ve düzelttim).
+
+**C3 — Sonuç kartlarında Q/T:** Kart başlığındaki profil adı artık
+`" (SEQ1M Q8T1 Q8T1)"` gibi çift görünmesin diye `BenchmarkResult`'ın
+kendi `QueueDepth`/`ThreadCount`'u kullanılarak `" (ProfileName Q8T1)"`
+biçiminde gösteriliyor (ör. "Rastgele Okuma (RND4K Q32T16 Q32T16)" değil
+"... (RND4K Q32T16)" — `ProfileName` zaten "RND4K Q32T16" olduğundan,
+Q/T'yi ayrıca eklemek yerine format `" ({ProfileName} Q{Q}T{T})"` yerine
+sadeleştirilip yalnızca `({ProfileName})`'in yanına `Q{Q}T{T}` eklendi;
+"Özel" profilde de gerçek kullanılan Q/T görünür hale geldi, ki bu asıl
+istenen — manuel ayarlanmış Q/T de artık sonuçta izlenebiliyor).
+
+**D1 — README ekran görüntüsü:** `docs/SCREENSHOT.png` (büyük harfle)
+gerçekte var ama README `docs/screenshot.png` (küçük harf) referans
+veriyordu — Windows'ta fark etmez ama GitHub büyük/küçük harf duyarlı
+olduğundan görsel orada kırık görünürdü. Referans gerçek dosya adına
+düzeltildi.
+
+**D2 — README Özellikler listesi:** Teşhis/self-test, trend geçmişi
+grafiği, rapor dışa aktarma, hazır CrystalDiskMark profilleri ve
+sıralı/rastgele ayrı Q/T eklendi; RAM, Sistem Bilgisi listesine eklendi.
+
+**D3 — CLAUDE.md Yapılacaklar:** Tamamlanan maddeler (sıcaklık grafiği,
+PCIe link speed/width, trend loglama) listeden çıkarıldı; kalanlar
+(disk format/partition — kasıtlı ertelendi, firmware uyarısı, B1'in
+self-test yüzdesi, çoklu dil — kullanıcı kararıyla ertelendi) güncel
+notlarla bırakıldı.
+
+**Son toplu doğrulama (A1-A4, B2, B1-fallback, C1-C3 birlikte):**
+`dotnet build` (tüm çözüm): 0 hata/0 uyarı. `dotnet test`: **72/72
+başarılı** (3 art arda çalıştırmada da kararlı — A2'nin eşzamanlılık
+testi düzeltmeden önce ara sıra flake veriyordu, düzeltildi). Uygulama
+gerçek proje çıktısından başlatıldı, kullanıcı UAC istemini onayladı,
+launch öncesi/sonrası log karşılaştırması: fark yok, yeni crash dosyası
+oluşmadı.
+
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** (bu ajan
+oturumunda pixel render'ı görülemiyor):
+- Canlı sıcaklık grafiğinin artık en az 2 nokta birikene kadar "Veri
+  bekleniyor..." gösterdiği, sonra çizginin gerçekten göründüğü.
+- Birkaç saat/gün sonra trend geçmişi grafiklerinin gerçekten büyüdüğü
+  (madde A2'nin asıl kanıtı — bu oturumda dakikalar içinde gözlenemedi).
+- "Kritik Uyarılar" başlığının, uyarı yokken "Kritik uyarı yok" metnini
+  gösterdiği.
+- Benchmark sayfası açıldığında hedef sürücünün artık sistem dışı bir
+  harfle (varsa) geldiği.
+- Self-test çalışırken "Başlat" butonunun gerçekten devre dışı kaldığı,
+  ilerleme çubuğunun (belirsiz modda) döndüğü, bitince otomatik
+  güncellendiği.
+- Bir CrystalDiskMark profili (ör. "SEQ1M Q8T1") seçildiğinde yalnızca
+  sıralı Q/T alanlarının kilitlenip rastgele alanların serbest kaldığı,
+  ve tam tersi.
+- Sonuç kartlarında artık Q/T bilgisinin göründüğü.
+
+**Değişiklik:**
+`src/SerkonDiskSuite.App/ViewModels/HealthViewModel.cs`,
+`src/SerkonDiskSuite.App/Views/MainWindow.xaml.cs`,
+`src/SerkonDiskSuite.Infrastructure/Trend/JsonSmartTrendStore.cs`,
+`src/SerkonDiskSuite.App/Views/Pages/DiagnosticsPage.xaml`,
+`src/SerkonDiskSuite.App/ViewModels/DiagnosticsViewModel.cs`,
+`src/SerkonDiskSuite.App/ViewModels/BenchmarkViewModel.cs`,
+`src/SerkonDiskSuite.Core/Models/BenchmarkModels.cs`,
+`src/SerkonDiskSuite.Core/Models/BenchmarkProfiles.cs`,
+`src/SerkonDiskSuite.Infrastructure/Benchmark/DiskBenchmarkRunner.cs`,
+`src/SerkonDiskSuite.App/Views/Pages/BenchmarkPage.xaml`,
+`src/SerkonDiskSuite.App/Converters/Converters.cs`,
+`README.md`, `CLAUDE.md`,
+`tests/SerkonDiskSuite.Tests/JsonSmartTrendStoreTests.cs` (yeni),
+`tests/SerkonDiskSuite.Tests/BenchmarkProfilesTests.cs`,
+`tests/SerkonDiskSuite.Tests/DiskBenchmarkRunnerTests.cs`
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

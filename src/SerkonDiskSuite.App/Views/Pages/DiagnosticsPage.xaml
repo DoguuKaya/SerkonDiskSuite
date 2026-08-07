@@ -31,9 +31,10 @@
 
             <!-- Kritik uyarı bayrakları (NVMe) -->
             <StackPanel Grid.Row="2" Margin="0,0,0,12"
-                        Visibility="{Binding CriticalWarningFlags, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
+                        Visibility="{Binding Health, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
                 <TextBlock Text="Kritik Uyarılar" Style="{StaticResource Muted}" />
-                <ItemsControl ItemsSource="{Binding CriticalWarningFlags}" Margin="0,4,0,0">
+                <ItemsControl ItemsSource="{Binding CriticalWarningFlags}" Margin="0,4,0,0"
+                              Visibility="{Binding CriticalWarningFlags, Converter={x:Static conv:CollectionToVisibilityConverter.Instance}}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding}" Foreground="{DynamicResource SystemFillColorCriticalBrush}"
@@ -41,6 +42,8 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <TextBlock Text="Kritik uyarı yok" Style="{StaticResource Muted}" Margin="0,4,0,0"
+                           Visibility="{Binding CriticalWarningFlags, Converter={x:Static conv:InverseCollectionToVisibilityConverter.Instance}}" />
             </StackPanel>
 
             <!-- Self-test başlatma -->
@@ -72,13 +75,31 @@
                             <Run Text="Durum: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                             <Run Text="{Binding SelfTestStatus.StatusDescription, Mode=OneWay}" />
                         </TextBlock>
-                        <TextBlock Margin="16,0,0,0" VerticalAlignment="Center"
-                                   Visibility="{Binding SelfTestStatus.IsRunning, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}">
+                        <TextBlock Margin="16,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Visibility>
+                                <MultiBinding Converter="{x:Static conv:RunningWithKnownPercentToVisibilityConverter.Instance}">
+                                    <Binding Path="SelfTestStatus.IsRunning" />
+                                    <Binding Path="SelfTestStatus.PercentRemaining" />
+                                </MultiBinding>
+                            </TextBlock.Visibility>
                             <Run Text="Kalan: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                             <Run Text="{Binding SelfTestStatus.PercentRemaining, Mode=OneWay}" />
                             <Run Text="%" />
                         </TextBlock>
+                        <TextBlock Margin="16,0,0,0" VerticalAlignment="Center" Style="{StaticResource Muted}">
+                            <TextBlock.Visibility>
+                                <MultiBinding Converter="{x:Static conv:RunningWithUnknownPercentToVisibilityConverter.Instance}">
+                                    <Binding Path="SelfTestStatus.IsRunning" />
+                                    <Binding Path="SelfTestStatus.PercentRemaining" />
+                                </MultiBinding>
+                            </TextBlock.Visibility>
+                            <Run Text="İlerleme bilgisi bu diskte raporlanmıyor" />
+                        </TextBlock>
                     </StackPanel>
+                    <ProgressBar Margin="0,8,0,0" Height="4" Minimum="0" Maximum="100"
+                                 Value="{Binding SelfTestStatus.PercentRemaining, Mode=OneWay}"
+                                 IsIndeterminate="{Binding SelfTestStatus.PercentRemaining, Converter={x:Static conv:IsNullConverter.Instance}}"
+                                 Visibility="{Binding SelfTestStatus.IsRunning, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
             </ui:Card>
         </Grid>
