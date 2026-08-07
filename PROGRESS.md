@@ -1836,6 +1836,62 @@ veri taşıyıcıları; gerçek mantık ADIM 3'te test edilecek).
 **Değişiklik:** `src/SerkonDiskSuite.Core/Models/HardwareModels.cs` (yeni),
 `src/SerkonDiskSuite.Core/Interfaces/Providers.cs`.
 
+### 43. ADIM 3 — LibreHardwareMonitorProvider implementasyonu (TAMAMLANDI — 2026-08-07)
+
+`Infrastructure/Hardware/LibreHardwareMonitorProvider.cs` (yeni):
+`IHardwareMonitorProvider` + `IDisposable`. `Computer` nesnesi yapıcıda
+bir kez oluşturulup `Open()` çağrılıyor (`IsCpuEnabled`/`IsGpuEnabled`/
+`IsMemoryEnabled` — anakart bu turda kapsam dışı, ADIM 1'de yönetici
+gerektirdiği ve sensör vermediği görülmüştü). `GetSnapshotAsync` her
+çağrıda resmi `IVisitor` deseniyle (`Computer.Accept(new UpdateVisitor())`
+— `SubHardware`'e recurse eden) sensörleri günceller, ardından
+`HardwareType`'a göre CPU/GPU/Memory donanımlarını ayırıp adım 1'de
+doğrulanan sensör adlarıyla değerleri okur:
+- CPU: `Temperature "CPU Package"` (yoksa `"Core Max"`), `Load "CPU Total"`.
+- GPU (`GpuNvidia`/`GpuAmd`/`GpuIntel`): ilk bulunan `Temperature`
+  sensörü, `Load "D3D 3D"` (yoksa ilk `Load`), bellek için önce
+  `"...Dedicated Memory Used"` (ayrı kart VRAM'i), yoksa `"...Memory
+  Used"` (`"D3D Shared Memory Used"` dahil, entegre GPU) — `SmallData`
+  (MB) veya `Data` (GB) birimine göre bayta çevriliyor.
+- Memory: `Hardware.Name == "Total Memory"` (fiziksel RAM; `"Virtual
+  Memory"` hariç tutuldu — ADIM 1'de ikisinin ayrı olduğu görülmüştü),
+  `Data "Memory Used"`/`"Memory Available"` (GB) toplanıp bayta çevrilerek
+  Used/Total elde ediliyor.
+
+Bulunamayan sensörler için tüm alanlar `null` bırakılıyor (tahmini değer
+üretilmedi). `GetSnapshotAsync`, senkron/bloklayan LibreHardwareMonitor
+çağrılarını `Task.Run` içine alıyor — `WmiSystemInfoProvider`'daki
+mevcut desenle tutarlı. `Dispose()` `Computer.Close()`'u çağırıyor;
+`App.xaml.cs`'teki mevcut `ServiceProvider.Dispose()` bunu otomatik
+tetikleyecek (yeni bir temizlik kodu gerekmedi — `HealthViewModel`'in
+`IDisposable` deseniyle aynı altyapı).
+
+`App.xaml.cs`'e `services.AddSingleton<IHardwareMonitorProvider,
+LibreHardwareMonitorProvider>()` eklendi (diğer tüm sağlayıcılarla aynı
+kayıt deseni).
+
+**Test:** Yeni `LibreHardwareMonitorProviderTests` (4 test) — **gerçek
+donanım üzerinden, mock değil** (`DiskBenchmarkRunnerTests`'in gerçek
+disk I/O yaklaşımıyla tutarlı): CPU yükü/RAM'in yönetici hakkı olmadan
+bile döndüğünü katı aralıkla, sıcaklık/GPU alanlarını (makineye göre
+değişebileceğinden) "null veya fiziksel aralıkta" gevşek doğruluyor;
+art arda iki çağrının hatasız olduğunu ve `Dispose()` sonrası
+`ObjectDisposedException` fırlatıldığını doğruluyor.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı (Infrastructure'da
+`TreatWarningsAsErrors=true` dahil). `dotnet test`: **76/76 başarılı**
+(72 eski + 4 yeni — yeni testler gerçek donanımda, bu geliştirme
+makinesinde, yönetici hakkı OLMADAN çalıştırıldı ve geçti: `CpuLoadPercent`
+0-100 aralığında gerçek değer, RAM used/total pozitif ve tutarlı).
+CPU sıcaklığı/GPU sıcaklığı bu ortamda beklendiği gibi `null` döndü
+(gevşek assertion bunu `null` olarak kabul ediyor) — **yönetici hakkıyla
+gerçek değer döndüğü ADIM 4'ün launch doğrulamasında kontrol edilecek.**
+
+**Değişiklik:**
+`src/SerkonDiskSuite.Infrastructure/Hardware/LibreHardwareMonitorProvider.cs`
+(yeni), `src/SerkonDiskSuite.App/App.xaml.cs`,
+`tests/SerkonDiskSuite.Tests/LibreHardwareMonitorProviderTests.cs` (yeni).
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

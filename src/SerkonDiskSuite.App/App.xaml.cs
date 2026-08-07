@@ -8,6 +8,7 @@ using SerkonDiskSuite.App.Views;
 using SerkonDiskSuite.App.Views.Pages;
 using SerkonDiskSuite.Core.Interfaces;
 using SerkonDiskSuite.Infrastructure.Benchmark;
+using SerkonDiskSuite.Infrastructure.Hardware;
 using SerkonDiskSuite.Infrastructure.Smart;
 using SerkonDiskSuite.Infrastructure.SystemInfo;
 using SerkonDiskSuite.Infrastructure.Trend;
@@ -92,6 +93,7 @@ public partial class App : Application
             File.Exists(smartctlPath) ? smartctlPath : null));
         services.AddSingleton<IBenchmarkRunner, DiskBenchmarkRunner>();
         services.AddSingleton<ISystemInfoProvider, WmiSystemInfoProvider>();
+        services.AddSingleton<IHardwareMonitorProvider, LibreHardwareMonitorProvider>();
         services.AddSingleton<ISmartTrendStore>(_ => new JsonSmartTrendStore());
 
         // ViewModel'ler
