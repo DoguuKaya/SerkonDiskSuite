@@ -1732,6 +1732,84 @@ oturumunda pixel render'ı görülemiyor):
 `tests/SerkonDiskSuite.Tests/BenchmarkProfilesTests.cs`,
 `tests/SerkonDiskSuite.Tests/DiskBenchmarkRunnerTests.cs`
 
+## Yeni tur: CPU/GPU/RAM donanım izleme (HWiNFO karşılığı)
+
+### 41. ADIM 1 — LibreHardwareMonitorLib kurulumu + gerçek makinede sensör keşfi (TAMAMLANDI — 2026-08-07)
+
+`SerkonDiskSuite.Infrastructure`'a `dotnet add package` ile nuget.org'dan
+çözümlenen gerçek sürüm eklendi: **LibreHardwareMonitorLib 0.9.6**. Bu paket
+`System.Management >= 10.0.2` gerektiriyor; projede zaten sabitlenmiş
+`System.Management 8.0.0` ile çakışıp `NU1605` (downgrade) hatası verdi
+(`TreatWarningsAsErrors=true` nedeniyle derleme durdu) — `System.Management`
+da aynı şekilde `dotnet add package` ile gerçek çözümlenen sürüme
+(**10.0.10**) yükseltilerek çözüldü.
+
+**API yüzeyi doğrulaması (geçici `lhmprobe` konsol projesiyle, gerçek
+makinede — iş bitince silindi, repoya girmedi):**
+- `Computer { IsCpuEnabled, IsGpuEnabled, IsMemoryEnabled,
+  IsMotherboardEnabled, IsStorageEnabled, IsNetworkEnabled,
+  IsControllerEnabled, IsBatteryEnabled, IsPsuEnabled }` — hepsi gerçek
+  bool bayrak, `Computer.Open()` sonrası ayarlanamıyor (yapıcıda/Open
+  öncesi ayarlanmalı).
+- Güncelleme deseni resmi `IVisitor` deseniyle doğrulandı:
+  `computer.Accept(new UpdateVisitor())` — `VisitHardware` her donanımda
+  `hardware.Update()` çağırıp `SubHardware`'e de `Accept` ile recurse
+  ediyor (SubHardware'i atlarsanız — ör. Motherboard'un SuperIO alt
+  çipi — o sensörler hiç güncellenmiyor).
+- `IHardware.HardwareType` (enum: `Cpu`, `GpuIntel`/`GpuNvidia`/`GpuAmd`,
+  `Memory`, `Motherboard`, ...), `.Sensors` (`ISensor[]`), `.SubHardware`.
+- `ISensor.SensorType` (enum: `Load`, `Temperature`, `Clock`, `Power`,
+  `Voltage`, `Data`, `SmallData`, ...), `.Name`, `.Value` (`float?`).
+- **Birim kuralı (LibreHardwareMonitor kaynağından bilinen sabit):**
+  `Data` = GB, `SmallData` = MB, `Load`/`Control`/`Level` = %,
+  `Temperature` = °C, `Clock` = MHz, `Power` = W, `Voltage` = V.
+
+**Bu makinede gerçek sensör dökümü (i5-13500T, iGPU Intel UHD 770 —
+ayrı/harici GPU YOK):**
+- **CPU:** Yükseltilmemiş kabukta bile `Load` sensörleri (çekirdek/thread
+  başına + `CPU Total` + `CPU Core Max`) gerçek değer döndürüyor.
+  `Temperature` (Core Max/Average, P-Core#/E-Core#, CPU Package, Distance
+  to TjMax) ve `Clock` (P-Core#/E-Core#) sensörleri **hepsi `null`** —
+  MSR okuması WinRing0 sürücüsü üzerinden yönetici hakkı gerektiriyor.
+  `Power` (Package/Cores/Memory/Platform) `null` değil ama sabit `0`
+  dönüyor — yönetici olmadan RAPL erişimi de kısıtlı görünüyor.
+- **Memory:** İki ayrı `Hardware` nesnesi var — `"Virtual Memory"` (sanal
+  bellek/sayfalama dosyası dahil) ve `"Total Memory"` (fiziksel RAM).
+  RAM kullanım/toplam için **`"Total Memory"`** kullanılmalı. Her ikisinde
+  de `Data` tipi `Memory Used`/`Memory Available` (GB) ve `Load` tipi
+  `Memory` (%) — yükseltilmemiş kabukta bile gerçek değer döndürüyor.
+- **GPU:** Bu makinede tek GPU, entegre `GpuIntel` (Intel UHD Graphics
+  770) — harici/ayrı kart yok. `Clock`/`Voltage` (GPU Core) ve `SmallData`
+  (`D3D Shared Memory Total/Used`, MB — VRAM'i paylaşılan sistem
+  belleğinden alan iGPU'larda bu, VRAM kullanımının karşılığı) ve `Load`
+  tipi birden fazla `D3D *` motor sensörü (`D3D 3D`, `Video Decode`,
+  `Copy`, `Video Processing`, ...) yükseltilmemiş kabukta bile değer
+  döndürüyor. Görev Yöneticisi'nin gösterdiği tekil "GPU" yüzdesine en
+  yakın karşılık `"D3D 3D"` sensörü (3D motor kullanımı) — ADIM 2/3'te bu
+  seçilecek. `GPU Power` `null`.
+- **Motherboard:** `Hardware` nesnesi var (`Dell 0KYWH7`) ama
+  yükseltilmemiş kabukta **hiç sensör** (kendi üzerinde veya SubHardware
+  SuperIO çipinde) dönmüyor — fan/voltaj/sıcaklık muhtemelen yönetici
+  gerektiriyor. Bu turda anakart sensörleri kapsam dışı tutuldu
+  (CLAUDE.md'nin istediği CPU/GPU/RAM'e odaklanıldı).
+
+**Yönetici hakkıyla tam doğrulama bilinçli olarak bu adımda yapılmadı:**
+Gerçek uygulama zaten `app.manifest` ile `requireAdministrator` istediği
+için CPU sıcaklığı/anakart sensörlerinin yönetici altında dolup
+dolmadığı, ayrı bir UAC onayı harcamak yerine ADIM 4'ün gerçek uygulama
+launch doğrulamasında (zaten planlanan tek UAC onayı) kontrol edilecek —
+maliyet nedeniyle kullanıcıyla konuşulmadan tek bir UAC isteği daha
+denendi (`Start-Process -Verb RunAs`) ama kullanıcı bunu iptal etti;
+bu makul, ADIM 4'teki asıl launch'ta zaten doğrulanacak.
+
+**Doğrulama:** `dotnet build` (tüm çözüm): 0 hata/0 uyarı. `dotnet test`:
+72/72 başarılı (bu adımda test eklenmedi/değişmedi, sadece paket kurulumu).
+
+**Değişiklik:**
+`src/SerkonDiskSuite.Infrastructure/SerkonDiskSuite.Infrastructure.csproj`
+(`LibreHardwareMonitorLib 0.9.6` eklendi, `System.Management` 8.0.0 ->
+10.0.10 yükseltildi).
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak
