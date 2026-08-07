@@ -1810,6 +1810,32 @@ bu makul, ADIM 4'teki asıl launch'ta zaten doğrulanacak.
 (`LibreHardwareMonitorLib 0.9.6` eklendi, `System.Management` 8.0.0 ->
 10.0.10 yükseltildi).
 
+### 42. ADIM 2 — Core modelleri ve IHardwareMonitorProvider arayüzü (TAMAMLANDI — 2026-08-07)
+
+`Core/Models/HardwareModels.cs` (yeni): `HardwareSensorReading` (Label,
+Value, Unit, `HardwareSensorCategory` enum — Load/Temperature/Clock/
+Power/Voltage/Data) ve `HardwareSnapshot` (Timestamp, CpuTemperatureCelsius,
+CpuLoadPercent, GpuName, GpuTemperatureCelsius, GpuLoadPercent,
+GpuMemoryUsedBytes, RamUsedBytes, RamTotalBytes). Tüm donanım alanları
+`nullable` (ADIM 1'in bulgusuyla tutarlı: `GpuTemperatureCelsius` bu
+makinede muhtemelen hep null kalacak — entegre GPU'da ayrı sensör yok;
+`CpuTemperatureCelsius` yönetici hakkı olmadan null).
+
+`Core/Interfaces/Providers.cs`'e `IHardwareMonitorProvider.
+GetSnapshotAsync(ct)` eklendi. Ayrı bir `StartMonitoring`/`StopMonitoring`
+metodu **eklenmedi** — mevcut `ISmartProvider` deseniyle tutarlı olması
+için (disk SMART okumasında periyodik döngü/yaşam döngüsü sağlayıcıda
+değil, çağıran `HealthViewModel`'de yönetiliyor), aynı sorumluluk
+ayrımı `IHardwareMonitorProvider`/`SystemViewModel` için de uygulanacak
+(ADIM 3/4).
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 72/72
+başarılı (yeni model/arayüz için henüz test eklenmedi — davranışsız salt
+veri taşıyıcıları; gerçek mantık ADIM 3'te test edilecek).
+
+**Değişiklik:** `src/SerkonDiskSuite.Core/Models/HardwareModels.cs` (yeni),
+`src/SerkonDiskSuite.Core/Interfaces/Providers.cs`.
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

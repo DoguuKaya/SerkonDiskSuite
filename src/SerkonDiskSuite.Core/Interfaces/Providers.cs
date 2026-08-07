@@ -49,6 +49,15 @@ public interface ISmartTrendStore
     Task AppendAsync(string diskKey, SmartTrendPoint point, CancellationToken ct = default);
 }
 
+/// <summary>CPU/GPU/RAM'in anlık donanım okumasını sağlar (HWiNFO'nun temel karşılığı).
+/// Periyodik okuma/yaşam döngüsü (ne zaman başlayıp duracağı) çağıran taraf
+/// (ViewModel) tarafında yönetilir — <see cref="ISmartProvider"/>'ın disk SMART
+/// okumasında izlenen desenle tutarlı; ayrı bir Start/Stop metoduna gerek yok.</summary>
+public interface IHardwareMonitorProvider
+{
+    Task<HardwareSnapshot> GetSnapshotAsync(CancellationToken ct = default);
+}
+
 /// <summary>Sistem özeti modeli.</summary>
 public sealed class SystemSummary
 {
