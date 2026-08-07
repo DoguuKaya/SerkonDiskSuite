@@ -1892,6 +1892,72 @@ gerçek değer döndüğü ADIM 4'ün launch doğrulamasında kontrol edilecek.*
 (yeni), `src/SerkonDiskSuite.App/App.xaml.cs`,
 `tests/SerkonDiskSuite.Tests/LibreHardwareMonitorProviderTests.cs` (yeni).
 
+### 44. ADIM 4 — SystemViewModel + SystemPage.xaml genişletme (TAMAMLANDI — 2026-08-07)
+
+`SystemViewModel`'e `IHardwareMonitorProvider` enjekte edildi;
+`HealthViewModel`'in disk sıcaklık izlemesiyle **aynı desende** (5 sn,
+`SetMonitoringActive(bool)` ile başlat/durdur, `CancellationTokenSource`
+ile iptal edilebilir arka plan döngüsü, tek okuma hatası döngüyü
+öldürmez) CPU yükü/sıcaklığını `LineSeries<DateTimePoint>` noktalarına
+ekleyen bir izleme döngüsü eklendi. `SystemPage`, `HealthPage`'deki gibi
+`INavigationAware` uyguluyor: sayfaya girilince izleme başlar, çıkılınca
+durur. `RamUsedPercent` computed property'si `OnHardwareChanged` hook'u
+ile her donanım okumasında yeniden hesaplanıyor.
+
+`SystemPage.xaml`: mevcut statik "Sistem Bilgisi" kartı **değişmeden**
+kaldı; altına yeni "Donanım İzleme (Canlı)" kartı eklendi —
+- **CPU:** Yük/Sıcaklık rozetleri + ikili Y ekseni olan (Yük % / °C)
+  canlı `CartesianChart` (madde 15/36/37'nin görsel dili: açık eksen
+  renkleri, `Background="Transparent"`, "Veri bekleniyor..." yer
+  tutucusu 2. noktaya kadar).
+- **GPU:** `Hardware.GpuName` null ise (GPU bulunamadıysa) bölüm
+  tamamen gizli; varsa Yük/Sıcaklık/VRAM rozetleri, her biri kendi
+  alanı null ise "Bu sistemde okunamıyor" gösteriyor.
+- **RAM:** Kullanılan/Toplam (bayt->okunabilir) + yüzde `ProgressBar`.
+
+Sayfa kökü `ScrollViewer` + `StackPanel`'e çevrildi (iki kart + canlı
+grafik toplamda küçük pencerelerde taşabileceğinden — madde 17'nin
+bugu bir NavigationView'ın *otomatik enjekte ettiği* sonsuz-yükseklik
+ScrollViewer'ın Grid "*" satırlarını çökertmesiydi; burada sayfanın
+KENDİ ScrollViewer'ı kasıtlı ve farklı bir sorun, riski yok).
+
+Yeni `InverseNullToVisibilityConverter` eklendi (`NullToVisibilityConverter`'ın
+tersi — "Bu sistemde okunamıyor" metnini yalnızca değer null'ken
+göstermek için; mevcut `InverseCollectionToVisibilityConverter` ile
+aynı çift-converter deseni, madde 40 A3'te kurulmuştu).
+
+**Doğrulama (DOĞRULAMA KURALI'na göre):** launch öncesi
+`%LOCALAPPDATA%\SerkonDiskSuite\logs\` klasörü **yoktu** (0 dosya).
+`dotnet build`: 0 hata/0 uyarı. `dotnet test`: 76/76 başarılı. Gerçek
+derleme çıktısından (`bin\Debug\...\SerkonDiskSuite.exe`) uygulama
+başlatıldı, kullanıcı UAC istemini onayladı; süreç (`PID 35696`) 15
+saniye `Responding=True` durumda kaldı, launch sonrası aynı log
+klasörü **hâlâ yoktu** (0 dosya, karşılaştırma: fark yok) — yeni crash
+dosyası oluşmadı, BAŞARILI.
+
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı** (bu ajan
+oturumunda WPF pixel render'ı görülemiyor, sadece süreç canlılığı ve
+crash log'u doğrulanabildi):
+- Sistem sekmesine geçildiğinde CPU Yük/Sıcaklık rozetlerinin ve canlı
+  grafiğin gerçek değerlerle dolduğu (özellikle **CPU Sıcaklığı** —
+  ADIM 1'de bu ajan oturumunun yükseltilmemiş kabuğunda hep `null`
+  gelmişti; uygulama zaten yönetici çalıştığından burada gerçek bir
+  değer beklenir, bu makinede elle doğrulanmalı).
+- GPU bölümünün bu makinede (Intel UHD 770, entegre) göründüğü, Yük ve
+  VRAM rozetlerinin dolduğu; Sıcaklık'ın ADIM 1'in bulgusuna göre
+  muhtemelen "Bu sistemde okunamıyor" göstereceği (entegre GPU'da ayrı
+  sıcaklık sensörü genelde yok — bu bir hata değil, beklenen durum).
+- RAM kartının kullanılan/toplam ve ilerleme çubuğunun doğru dolduğu.
+- Sistem sekmesinden başka sekmeye geçilince izleme döngüsünün
+  durduğu (ör. birkaç dakika başka sekmede kalıp geri dönünce grafiğin
+  makul bir noktadan devam ettiği/sıfırlanmadığı).
+
+**Değişiklik:**
+`src/SerkonDiskSuite.App/ViewModels/SystemViewModel.cs`,
+`src/SerkonDiskSuite.App/Views/Pages/SystemPage.xaml`,
+`src/SerkonDiskSuite.App/Views/Pages/SystemPage.xaml.cs`,
+`src/SerkonDiskSuite.App/Converters/Converters.cs`.
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

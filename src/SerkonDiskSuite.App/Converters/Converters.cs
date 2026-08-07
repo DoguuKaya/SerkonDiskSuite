@@ -49,6 +49,22 @@ public sealed class NullToVisibilityConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>NullToVisibilityConverter'ın tersi: null (veya boş string) -> Visible,
+/// değer varsa -> Collapsed. Bir sensör bu donanımda okunamadığında "Bu sistemde
+/// okunamıyor" yer tutucusunu göstermek için kullanılır.</summary>
+public sealed class InverseNullToVisibilityConverter : IValueConverter
+{
+    public static readonly InverseNullToVisibilityConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is not null && !(value is string s && string.IsNullOrEmpty(s))
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Boş olmayan koleksiyon -> Visible, null veya boş koleksiyon -> Collapsed
 /// (NullToVisibilityConverter'ın aksine, dolu ama sıfır elemanlı koleksiyonları da gizler).</summary>
 public sealed class CollectionToVisibilityConverter : IValueConverter

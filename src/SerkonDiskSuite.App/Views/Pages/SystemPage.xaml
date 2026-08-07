@@ -2,6 +2,8 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:conv="clr-namespace:SerkonDiskSuite.App.Converters"
+      xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:viewModels="clr-namespace:SerkonDiskSuite.App.ViewModels"
@@ -10,38 +12,144 @@
       d:DataContext="{d:DesignInstance Type=viewModels:SystemViewModel}"
       mc:Ignorable="d">
 
-    <ui:Card Margin="0,0,8,8">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,8,8">
+            <ui:Card Margin="0,0,0,8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="Sistem Bilgisi" Style="{StaticResource Heading}" />
-            <StackPanel Grid.Row="1" DataContext="{Binding Summary}">
-                <TextBlock Margin="0,4">
-                    <Run Text="İşletim Sistemi: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <Run Text="{Binding OsName, Mode=OneWay}" />
-                </TextBlock>
-                <TextBlock Margin="0,4">
-                    <Run Text="İşlemci: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <Run Text="{Binding CpuName, Mode=OneWay}" />
-                </TextBlock>
-                <TextBlock Margin="0,4">
-                    <Run Text="RAM: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <Run Text="{Binding TotalMemoryBytes, Converter={StaticResource BytesToString}, Mode=OneWay}" />
-                </TextBlock>
-                <TextBlock Margin="0,4">
-                    <Run Text="Anakart: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <Run Text="{Binding MotherboardName, Mode=OneWay}" />
-                </TextBlock>
-                <TextBlock Margin="0,4">
-                    <Run Text="BIOS: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <Run Text="{Binding BiosVersion, Mode=OneWay}" />
-                </TextBlock>
-            </StackPanel>
-            <!-- Grid.Row="2" boş: kalan dikey alan burada kalır (içerik üstte sabit kalır) -->
-        </Grid>
-    </ui:Card>
+                    <TextBlock Grid.Row="0" Text="Sistem Bilgisi" Style="{StaticResource Heading}" />
+                    <StackPanel Grid.Row="1" DataContext="{Binding Summary}">
+                        <TextBlock Margin="0,4">
+                            <Run Text="İşletim Sistemi: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <Run Text="{Binding OsName, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Margin="0,4">
+                            <Run Text="İşlemci: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <Run Text="{Binding CpuName, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Margin="0,4">
+                            <Run Text="RAM: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <Run Text="{Binding TotalMemoryBytes, Converter={StaticResource BytesToString}, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Margin="0,4">
+                            <Run Text="Anakart: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <Run Text="{Binding MotherboardName, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Margin="0,4">
+                            <Run Text="BIOS: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <Run Text="{Binding BiosVersion, Mode=OneWay}" />
+                        </TextBlock>
+                    </StackPanel>
+                </Grid>
+            </ui:Card>
+
+            <ui:Card>
+                <StackPanel>
+                    <TextBlock Text="Donanım İzleme (Canlı)" Style="{StaticResource Heading}" />
+
+                    <!-- CPU -->
+                    <TextBlock Text="CPU" Style="{StaticResource Muted}" Margin="0,12,0,4" />
+                    <UniformGrid Columns="2">
+                        <ui:Card Margin="4">
+                            <StackPanel>
+                                <TextBlock Text="Yük" Style="{StaticResource Muted}" />
+                                <TextBlock FontSize="20" FontWeight="Bold"
+                                           Visibility="{Binding Hardware.CpuLoadPercent, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
+                                    <Run Text="{Binding Hardware.CpuLoadPercent, Converter={StaticResource NumberToString}, Mode=OneWay}" />
+                                    <Run Text="%" />
+                                </TextBlock>
+                                <TextBlock Text="Bu sistemde okunamıyor" Style="{StaticResource Muted}"
+                                           Visibility="{Binding Hardware.CpuLoadPercent, Converter={x:Static conv:InverseNullToVisibilityConverter.Instance}}" />
+                            </StackPanel>
+                        </ui:Card>
+                        <ui:Card Margin="4">
+                            <StackPanel>
+                                <TextBlock Text="Sıcaklık" Style="{StaticResource Muted}" />
+                                <TextBlock FontSize="20" FontWeight="Bold"
+                                           Visibility="{Binding Hardware.CpuTemperatureCelsius, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
+                                    <Run Text="{Binding Hardware.CpuTemperatureCelsius, Converter={StaticResource NumberToString}, Mode=OneWay}" />
+                                    <Run Text="°C" />
+                                </TextBlock>
+                                <TextBlock Text="Bu sistemde okunamıyor" Style="{StaticResource Muted}"
+                                           Visibility="{Binding Hardware.CpuTemperatureCelsius, Converter={x:Static conv:InverseNullToVisibilityConverter.Instance}}" />
+                            </StackPanel>
+                        </ui:Card>
+                    </UniformGrid>
+
+                    <ui:Card Margin="4,4,4,12" Padding="8" Height="160">
+                        <Grid>
+                            <lvc:CartesianChart Series="{Binding CpuSeries}"
+                                                 XAxes="{Binding CpuXAxes}"
+                                                 YAxes="{Binding CpuYAxes}"
+                                                 SyncContext="{Binding ChartSyncObject}"
+                                                 Background="Transparent" />
+                            <TextBlock Text="Veri bekleniyor..." Style="{StaticResource Muted}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       IsHitTestVisible="False"
+                                       Visibility="{Binding HasCpuChartData, Converter={x:Static conv:InverseBoolToVisibilityConverter.Instance}}" />
+                        </Grid>
+                    </ui:Card>
+
+                    <!-- GPU: bu makinede GPU bulunamazsa (Hardware.GpuName null) bölüm tamamen gizlenir. -->
+                    <StackPanel Visibility="{Binding Hardware.GpuName, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
+                        <TextBlock Text="{Binding Hardware.GpuName}" Style="{StaticResource Muted}" Margin="0,0,0,4" />
+                        <UniformGrid Columns="3" Margin="0,0,0,12">
+                            <ui:Card Margin="4">
+                                <StackPanel>
+                                    <TextBlock Text="Yük" Style="{StaticResource Muted}" />
+                                    <TextBlock FontSize="18" FontWeight="Bold"
+                                               Visibility="{Binding Hardware.GpuLoadPercent, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
+                                        <Run Text="{Binding Hardware.GpuLoadPercent, Converter={StaticResource NumberToString}, Mode=OneWay}" />
+                                        <Run Text="%" />
+                                    </TextBlock>
+                                    <TextBlock Text="Bu sistemde okunamıyor" Style="{StaticResource Muted}"
+                                               Visibility="{Binding Hardware.GpuLoadPercent, Converter={x:Static conv:InverseNullToVisibilityConverter.Instance}}" />
+                                </StackPanel>
+                            </ui:Card>
+                            <ui:Card Margin="4">
+                                <StackPanel>
+                                    <TextBlock Text="Sıcaklık" Style="{StaticResource Muted}" />
+                                    <TextBlock FontSize="18" FontWeight="Bold"
+                                               Visibility="{Binding Hardware.GpuTemperatureCelsius, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
+                                        <Run Text="{Binding Hardware.GpuTemperatureCelsius, Converter={StaticResource NumberToString}, Mode=OneWay}" />
+                                        <Run Text="°C" />
+                                    </TextBlock>
+                                    <TextBlock Text="Bu sistemde okunamıyor" Style="{StaticResource Muted}"
+                                               Visibility="{Binding Hardware.GpuTemperatureCelsius, Converter={x:Static conv:InverseNullToVisibilityConverter.Instance}}" />
+                                </StackPanel>
+                            </ui:Card>
+                            <ui:Card Margin="4">
+                                <StackPanel>
+                                    <TextBlock Text="VRAM Kullanımı" Style="{StaticResource Muted}" />
+                                    <TextBlock FontSize="18" FontWeight="Bold"
+                                               Text="{Binding Hardware.GpuMemoryUsedBytes, Converter={StaticResource BytesToString}, Mode=OneWay}"
+                                               Visibility="{Binding Hardware.GpuMemoryUsedBytes, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
+                                    <TextBlock Text="Bu sistemde okunamıyor" Style="{StaticResource Muted}"
+                                               Visibility="{Binding Hardware.GpuMemoryUsedBytes, Converter={x:Static conv:InverseNullToVisibilityConverter.Instance}}" />
+                                </StackPanel>
+                            </ui:Card>
+                        </UniformGrid>
+                    </StackPanel>
+
+                    <!-- RAM -->
+                    <TextBlock Text="RAM" Style="{StaticResource Muted}" Margin="0,0,0,4" />
+                    <ui:Card Margin="4,4,4,4">
+                        <StackPanel>
+                            <TextBlock FontSize="16" FontWeight="Bold">
+                                <Run Text="{Binding Hardware.RamUsedBytes, Converter={StaticResource BytesToString}, Mode=OneWay}" />
+                                <Run Text=" / " />
+                                <Run Text="{Binding Hardware.RamTotalBytes, Converter={StaticResource BytesToString}, Mode=OneWay}" />
+                            </TextBlock>
+                            <ProgressBar Minimum="0" Maximum="100" Height="8" Margin="0,6,0,0"
+                                         Value="{Binding RamUsedPercent, Mode=OneWay}" />
+                        </StackPanel>
+                    </ui:Card>
+                </StackPanel>
+            </ui:Card>
+        </StackPanel>
+    </ScrollViewer>
 </Page>
