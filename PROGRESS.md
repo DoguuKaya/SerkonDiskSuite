@@ -2482,6 +2482,77 @@ makinede/gerçek CI geçmişiyle doğrulanarak tamamlandı. Doğrulanamayan
 tek kısım: `release.yml`'in `package` işi (gerçek bir `v*` etiketi
 push'lanmadan tetiklenemez — kasıtlı olarak kullanıcıya bırakıldı).
 
+### 54. ÖZELLİK: RAM modül hız (MHz) ve tipi (DDR3/DDR4/DDR5) (TAMAMLANDI — 2026-08-10)
+
+**Araştırma (tahmine dayanmadan):**
+- Bu makinede gerçek `Get-CimInstance Win32_PhysicalMemory` sorgusu
+  çalıştırıldı (32 GB, 2x16 GB): `Capacity=17179869184`, `Speed=3200`,
+  `ConfiguredClockSpeed=3200`, `SMBIOSMemoryType=26`, **`MemoryType=0`**
+  (Unknown — bu makinede GERÇEK DDR4 donanımında bile bu alan boş
+  geliyor, CIM-eşlemeli `MemoryType` alanı güvenilmez; ham
+  `SMBIOSMemoryType` kullanılmalı — bu, kodda `MemoryType` yerine
+  `SMBIOSMemoryType` kullanma kararının gerçek kanıtı).
+- Microsoft'un resmi `Win32_PhysicalMemory` belgeleri (learn.microsoft.com)
+  çekilip `SMBIOSMemoryType` alanının ham SMBIOS değerini taşıdığı,
+  `MemoryType`'ın ise eski/sınırlı bir CIM eşlemesi olduğu doğrulandı.
+  Bu belge DDR5 için bir kod LİSTELEMİYOR (DDR5'ten önce yazılmış) —
+  bu yüzden DDR5 kodu ayrıca SMBIOS spesifikasyonundan (DSP0134,
+  Tablo 78, "Memory Type") doğrulandı: **34 (0x22) = DDR5**, bağımsız
+  bir üçüncü taraf SMBIOS ayrıştırıcı kütüphanesiyle (smbios-lib)
+  çapraz kontrol edildi (24=DDR3, 26=DDR4, 34=DDR5 üçü de tutarlı).
+- `ConfiguredClockSpeed`, belgelerde açıkça "megahertz (MHz)" olarak
+  işaretli; ham `Speed` alanı belgede "nanoseconds" diye işaretli olsa
+  da gerçek makinede `ConfiguredClockSpeed` ile BİREBİR AYNI (3200)
+  değeri döndürdüğü gözlemlendi — birim karışıklığından kaçınmak için
+  kodda `ConfiguredClockSpeed` kullanıldı (belgede birimi açık olan alan).
+
+**Uygulama:**
+- `Core/Models/RamModuleInfo.cs` (yeni): `RamType` enum (Unknown/Ddr3/
+  Ddr4/Ddr5) + `RamModuleInfo` record (CapacityBytes, SpeedMHz?, Type, Slot?).
+- `Core/Interfaces/Providers.cs`: `SystemSummary.RamModules` eklendi.
+- `Core/Formatting/RamModuleFormatter.cs` (yeni): `FormatSummary` —
+  tüm modüller aynı kapasite/hız/tipteyse "2x16 GB, DDR4-3200" gibi tek
+  satır özet, farklıysa her modülü slot etiketiyle ayrı satırda listeler.
+- `WmiSystemInfoProvider`: `Win32_PhysicalMemory` sorgusu eklendi,
+  `MapRamType` ham SMBIOS kodunu enum'a çeviriyor, alan boş/0 gelirse
+  null bırakılıyor (tahmini değer üretilmedi).
+- `SystemPage.xaml`: RAM satırına yeni `RamModulesToParenthesizedStringConverter`
+  ile modül özeti eklendi (ör. "RAM: 31,70 GB (2x16 GB, DDR4-3200)").
+- `DiskReportBuilder`: `BuildPlainText`/`BuildJson`'a opsiyonel `ramModules`
+  parametresi eklendi, "Sistem Anlık Durumu" bölümüne "RAM Modülleri"
+  satırı olarak yansıtılıyor; `MainViewModel`'in üç çağrı noktası
+  `System.Summary?.RamModules`'ü geçiriyor.
+
+**Test:** 6 yeni `RamModuleFormatterTests` (boş liste, aynı tip özet,
+karışık tip liste, tip bilinmiyor+hız var, tip+hız bilinmiyor, slot'suz
+karışık liste) + yeni `WmiSystemInfoProviderTests` (gerçek WMI üzerinden,
+mock değil — **CI'da farklı/sanal donanımda da çalışacağından bu
+geliştirme makinesine özgü sabit değerler İDDİA EDİLMEDİ**, yalnızca
+yapısal/mantıklı aralık kontrolleri; `LibreHardwareMonitorProviderTests`'teki
+aynı ilke). Bu testte gerçek bir bulgu: `Win32_ComputerSystem.
+TotalPhysicalMemory` (OS'e görünen) ile `Win32_PhysicalMemory.Capacity`
+toplamı (ham DIMM) **birebir eşit değil** (bu makinede ~326 MB fark,
+donanım/UEFI/GPU rezervasyonu) — testin ilk hâli bunu varsaymıştı,
+gerçek çalıştırmada hata verip düzeltildi (oran bazlı gevşek kontrol).
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: **87/87
+başarılı** (80 eski + 7 yeni). Gerçek uygulama yönetici olarak
+başlatıldı; launch öncesi/sonrası crash log sayısı karşılaştırıldı
+(14 -> 14, fark yok). **Kullanıcı gerçek makinede doğruladı:** Sistem
+sekmesinde RAM satırında "DDR4-3200" gerçekten görünüyor.
+
+**Değişiklik:**
+`src/SerkonDiskSuite.Core/Models/RamModuleInfo.cs` (yeni),
+`src/SerkonDiskSuite.Core/Interfaces/Providers.cs`,
+`src/SerkonDiskSuite.Core/Formatting/RamModuleFormatter.cs` (yeni),
+`src/SerkonDiskSuite.Infrastructure/SystemInfo/WmiSystemInfoProvider.cs`,
+`src/SerkonDiskSuite.App/Converters/Converters.cs`, `App.xaml`,
+`src/SerkonDiskSuite.App/Views/Pages/SystemPage.xaml`,
+`src/SerkonDiskSuite.Core/Reporting/DiskReportBuilder.cs`,
+`src/SerkonDiskSuite.App/ViewModels/MainViewModel.cs`,
+`tests/SerkonDiskSuite.Tests/RamModuleFormatterTests.cs` (yeni),
+`tests/SerkonDiskSuite.Tests/WmiSystemInfoProviderTests.cs` (yeni).
+
 ## Devam eden iş
 
 - Yok. Disk format/partition ve firmware güncelleme **kalıcı olarak

@@ -115,8 +115,8 @@ public partial class MainViewModel : ObservableObject
             string jsonPath = Path.ChangeExtension(txtPath, ".json");
 
             var results = Benchmark.Results.ToList();
-            File.WriteAllText(txtPath, DiskReportBuilder.BuildPlainText(disk, Health.Health, results, System.Hardware));
-            File.WriteAllText(jsonPath, DiskReportBuilder.BuildJson(disk, Health.Health, results, System.Hardware));
+            File.WriteAllText(txtPath, DiskReportBuilder.BuildPlainText(disk, Health.Health, results, System.Hardware, System.Summary?.RamModules));
+            File.WriteAllText(jsonPath, DiskReportBuilder.BuildJson(disk, Health.Health, results, System.Hardware, System.Summary?.RamModules));
 
             StatusMessage = $"Rapor kaydedildi: {txtPath} / {Path.GetFileName(jsonPath)}";
         }
@@ -134,7 +134,7 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            string text = DiskReportBuilder.BuildPlainText(disk, Health.Health, Benchmark.Results.ToList(), System.Hardware);
+            string text = DiskReportBuilder.BuildPlainText(disk, Health.Health, Benchmark.Results.ToList(), System.Hardware, System.Summary?.RamModules);
             Clipboard.SetText(text);
             StatusMessage = "Rapor panoya kopyalandı.";
         }

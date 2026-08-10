@@ -17,7 +17,8 @@ public static class DiskReportBuilder
         DiskInfo disk,
         SmartHealth? health,
         IReadOnlyList<BenchmarkResult> benchmarkResults,
-        HardwareSnapshot? hardware = null)
+        HardwareSnapshot? hardware = null,
+        IReadOnlyList<RamModuleInfo>? ramModules = null)
     {
         var sb = new StringBuilder();
         const string separator = "----------------------------------------------------------";
@@ -97,6 +98,10 @@ public static class DiskReportBuilder
                 sb.AppendLine($"GPU Bellek Kullanımı : {(hardware.GpuMemoryUsedBytes is { } gm ? DisplayFormatting.FormatBytes(gm) : "-")}");
             }
             sb.AppendLine($"RAM Kullanımı        : {(hardware.RamUsedBytes is { } ru ? DisplayFormatting.FormatBytes(ru) : "-")} / {(hardware.RamTotalBytes is { } rt ? DisplayFormatting.FormatBytes(rt) : "-")}");
+            if (ramModules is { Count: > 0 } && RamModuleFormatter.FormatSummary(ramModules) is { } ramSummary)
+            {
+                sb.AppendLine($"RAM Modülleri        : {ramSummary}");
+            }
             sb.AppendLine();
         }
 
@@ -108,7 +113,8 @@ public static class DiskReportBuilder
         DiskInfo disk,
         SmartHealth? health,
         IReadOnlyList<BenchmarkResult> benchmarkResults,
-        HardwareSnapshot? hardware = null)
+        HardwareSnapshot? hardware = null,
+        IReadOnlyList<RamModuleInfo>? ramModules = null)
     {
         var report = new
         {
@@ -117,6 +123,7 @@ public static class DiskReportBuilder
             Health = health,
             BenchmarkResults = benchmarkResults,
             Hardware = hardware,
+            RamModules = ramModules,
         };
         return JsonSerializer.Serialize(report, JsonOptions);
     }

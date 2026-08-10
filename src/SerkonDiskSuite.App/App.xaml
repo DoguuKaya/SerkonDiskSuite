@@ -23,6 +23,7 @@
             <conv:NumberToStringConverter x:Key="NumberToString" />
             <conv:BenchmarkTestKindToStringConverter x:Key="BenchmarkTestKindToString" />
             <conv:SelfTestTypeToStringConverter x:Key="SelfTestTypeToString" />
+            <conv:RamModulesToParenthesizedStringConverter x:Key="RamModulesToParenthesizedString" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

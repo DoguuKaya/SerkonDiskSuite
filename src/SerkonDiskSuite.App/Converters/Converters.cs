@@ -7,6 +7,20 @@ using SerkonDiskSuite.Core.Models;
 
 namespace SerkonDiskSuite.App.Converters;
 
+/// <summary>RAM modül listesi -> " (2x16 GB, DDR4-3200)" gibi parantezli bir ek metin
+/// (RamModuleFormatter.FormatSummary'yi sarmalar). Liste boşsa/null ise boş dizge döner
+/// (Run'da hiçbir şey görünmez).</summary>
+public sealed class RamModulesToParenthesizedStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is IReadOnlyList<RamModuleInfo> modules && RamModuleFormatter.FormatSummary(modules) is { } summary
+            ? $" ({summary})"
+            : "";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>HealthStatus -> renkli fırça (yeşil/sarı/kırmızı).</summary>
 public sealed class HealthToBrushConverter : IValueConverter
 {

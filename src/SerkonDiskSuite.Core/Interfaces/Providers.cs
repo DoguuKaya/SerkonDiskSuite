@@ -86,4 +86,8 @@ public sealed class SystemSummary
     public string MotherboardName { get; init; } = string.Empty;
     public string BiosVersion { get; init; } = string.Empty;
     public long TotalMemoryBytes { get; init; }
+
+    /// <summary>Her fiziksel RAM modülünün hız/tip/slot bilgisi. Okunamazsa boş liste
+    /// (tahmini değer üretilmez) — çağıran taraf yalnızca TotalMemoryBytes'ı gösterir.</summary>
+    public IReadOnlyList<RamModuleInfo> RamModules { get; init; } = [];
 }

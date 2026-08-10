@@ -31,9 +31,10 @@
                             <Run Text="İşlemci: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                             <Run Text="{Binding CpuName, Mode=OneWay}" />
                         </TextBlock>
-                        <TextBlock Margin="0,4">
+                        <TextBlock Margin="0,4" TextWrapping="Wrap">
                             <Run Text="RAM: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                             <Run Text="{Binding TotalMemoryBytes, Converter={StaticResource BytesToString}, Mode=OneWay}" />
+                            <Run Text="{Binding RamModules, Converter={StaticResource RamModulesToParenthesizedString}, Mode=OneWay}" />
                         </TextBlock>
                         <TextBlock Margin="0,4">
                             <Run Text="Anakart: " Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
