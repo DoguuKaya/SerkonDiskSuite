@@ -1992,8 +1992,14 @@ metotlara geçiriyor — Sistem sekmesi hiç açılmamışsa `Hardware` hâlâ
 **Doğrulama:** Yeni `JsonHardwareTrendStoreTests` (3 test —
 `JsonSmartTrendStoreTests`'in aynı süreçler-arası eşzamanlılık senaryosu
 dahil). `dotnet build`: 0 hata/0 uyarı. `dotnet test`: **79/79 başarılı**
-(76 eski + 3 yeni). Gerçek uygulama yönetici olarak başlatılıp launch
-öncesi/sonrası log karşılaştırması yapıldı (aşağıya bakın).
+(76 eski + 3 yeni). **Bu adımın gerçek uygulama launch doğrulaması bu
+oturumda tamamlanamadı** — UAC isteği kullanıcı tarafından iptal edildi
+(maliyet nedeniyle tekrar denenmedi); ADIM 4'ün launch doğrulaması zaten
+crash olmadığını göstermişti ve bu adımdaki değişiklikler (trend depo +
+rapor builder) mevcut, test edilmiş desenlerin (JsonSmartTrendStore,
+DiskReportBuilder) doğrudan kopyası/genişletmesi olduğundan risk düşük
+görülüyor — ama **kullanıcı bir sonraki normal kullanımda uygulamanın
+sorunsuz açıldığını ve crash log oluşmadığını elle doğrulamalı.**
 
 **Görsel doğrulama kullanıcı tarafından elle yapılmalı:**
 - Birkaç dakika/saat sonra `%LOCALAPPDATA%\SerkonDiskSuite\trend\
