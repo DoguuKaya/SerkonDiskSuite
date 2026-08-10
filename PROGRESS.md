@@ -2450,6 +2450,38 @@ başarılı (bu adımda uygulama kodu değişmedi).
 
 **Değişiklik:** `.github/workflows/release.yml` (yeni).
 
+### 53. ADIM 6 — README vitrin kalitesine çıkarma (TAMAMLANDI — 2026-08-10)
+
+En üste rozet satırı eklendi (shields.io): CI durumu, son sürüm, MIT
+lisans, .NET 8 — gerçek repo yoluna (`DoguuKaya/SerkonDiskSuite`, `git
+remote -v` ile doğrulandı) işaret ediyor. Yeni "İndir" bölümü GitHub
+Releases'e doğrudan link veriyor, installer vs. taşınabilir zip
+seçeneklerini açıklıyor. Ekran görüntüsü en üste (başlık + rozetlerin
+hemen altına) taşındı. Özellikler listesi madde 46/47'nin CPU/GPU
+detaylarını (ayrı Yük/Sıcaklık grafikleri, VBS tespiti) ve rapor
+dışa aktarmanın artık sistem anlık durumunu da içerdiğini yansıtacak
+şekilde güncellendi. Yeni "Kurulum paketi (installer) oluşturma"
+bölümü (ADIM 3/5). "Katkıda bulunma" bölümü genişletildi (CLAUDE.md
+referansı, build/test beklentisi, PR açıklaması). Gereksinimler
+listesinde smartmontools artık **opsiyonel** olarak açıkça işaretlendi.
+Kaynak klonlama URL'si placeholder'dan gerçek repo yoluna güncellendi.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 80/80
+başarılı (README değişikliği kod derlemesini etkilemez, kural gereği
+yine de çalıştırıldı).
+
+**Değişiklik:** `README.md`.
+
+## CrystalDiskInfo/HWiNFO seviyesi profesyonel dağıtım turu tamamlandı (ADIM 1-6)
+
+Uygulama simgesi, gerçek publish yapılandırması (tek dosya + ReadyToRun +
+tr-TR korumalı), Inno Setup installer (gerçekten derlenip kurulup
+kaldırılarak doğrulandı), repo temizliği, `v*` etiketiyle otomatik
+GitHub Release workflow'u, vitrin kalitesinde README — hepsi gerçek
+makinede/gerçek CI geçmişiyle doğrulanarak tamamlandı. Doğrulanamayan
+tek kısım: `release.yml`'in `package` işi (gerçek bir `v*` etiketi
+push'lanmadan tetiklenemez — kasıtlı olarak kullanıcıya bırakıldı).
+
 ## Devam eden iş
 
 - Yok. Disk format/partition ve firmware güncelleme **kalıcı olarak
