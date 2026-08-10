@@ -2231,6 +2231,57 @@ kaldırıldı), `src/SerkonDiskSuite.App/ViewModels/SystemViewModel.cs`
 kaldırıldı), `src/SerkonDiskSuite.App/Views/Pages/SystemPage.xaml`
 (iki ayrı grafik kartı).
 
+## Yeni tur: Profesyonel dağıtım (CrystalDiskInfo/HWiNFO seviyesi)
+
+### 48. ADIM 1 — Uygulama ikonu (TAMAMLANDI — 2026-08-10)
+
+`tools/icon-gen/` (yeni, küçük .NET konsol aracı, SkiaSharp 3.119.0 —
+App projesinin gerçekte çözümlediği sürümle aynı, tahmin edilmedi):
+disk/depolama + sağlık izleme temasını birleştiren bir ikon çiziyor
+(yuvarlatılmış mavi kare `#2563EB` — WPF-UI aksan rengiyle uyumlu —
+üzerinde beyaz bir disk gövdesi ve onun üzerinden geçen yeşil bir
+EKG/nabız çizgisi, CrystalDiskInfo'nun disk+sağlık dilini andırıyor).
+16/32/48/256 piksel için ayrı ayrı çizip PNG'ye kodluyor, ardından ham
+ICONDIR/ICONDIRENTRY formatını elle yazarak (PNG-sıkıştırmalı ICO,
+Windows Vista+ destekler) tek bir çok katmanlı `.ico` üretiyor.
+
+**Gerçek doğrulama (tahmine dayanmadan):**
+- `dotnet run --project tools/icon-gen` çalıştırılıp
+  `src/SerkonDiskSuite.App/Assets/app.ico` üretildi (8623 bayt).
+- Ham byte seviyesinde ICONDIR ayrıştırıldı: 4 girdi, her biri geçerli
+  PNG imzasıyla (`89 50 4E 47 0D 0A 1A 0A`) başlıyor; 256 girdisi
+  spec'e uygun width/height=0 kodluyor. 4. girdinin PNG IHDR'ı
+  doğrudan okunup **256x256** olduğu teyit edildi (`System.Drawing.Icon`'un
+  256'yı 48'e düşürmesi o eski API'nin bilinen bir kısıtı, dosyanın
+  kendisi bozuk değil — ayrıca doğrulandı).
+- `SerkonDiskSuite.App.csproj`'a `<ApplicationIcon>Assets\app.ico</ApplicationIcon>`
+  + `<Resource Include="Assets\app.ico" />` eklendi.
+
+**BUG (bulunup düzeltildi):** `MainWindow.xaml`'e ilk eklenen
+`Icon="Assets/app.ico"` gerçek uygulamada açılışta çöküyordu
+(`XamlParseException` -> `IOException: 'views/assets/app.ico' kaynağının
+yeri belirlenemiyor`). **Kök neden:** WPF'te göreli (baştaki `/`
+olmayan) XAML kaynak yolları, XAML dosyasının KENDİ konumuna göre
+çözümlenir — `MainWindow.xaml`, `Views/` altında olduğundan
+`Views/Assets/app.ico` aranıyordu, ama `Assets/` proje kökünde
+(`Views/`in kardeşi). **Düzeltme:** `Icon="/Assets/app.ico"` (baştaki
+`/` ile proje köküne/pack URI'ye göre mutlak yol).
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 80/80
+başarılı. `System.Drawing.Icon.ExtractAssociatedIcon` ile derlenen
+.exe'den ikon başarıyla çıkarıldı (önceden hiç yoktu). Gerçek uygulama
+yönetici olarak başlatıldı; **önce** düzeltme öncesi hâliyle test
+edilip çöküş + crash log kanıtlandı (log alıntısı yukarıda), **sonra**
+düzeltme sonrası launch öncesi/sonrası crash log sayısı karşılaştırıldı
+(14 -> 14, yeni dosya yok) ve kullanıcı pencere/görev çubuğu simgesinin
+artık göründüğünü gerçek makinede doğruladı.
+
+**Değişiklik:** `tools/icon-gen/icon-gen.csproj` (yeni),
+`tools/icon-gen/Program.cs` (yeni),
+`src/SerkonDiskSuite.App/Assets/app.ico` (yeni, üretilen),
+`src/SerkonDiskSuite.App/SerkonDiskSuite.App.csproj`,
+`src/SerkonDiskSuite.App/Views/MainWindow.xaml`.
+
 ## Devam eden iş
 
 - Yok. Disk format/partition ve firmware güncelleme **kalıcı olarak

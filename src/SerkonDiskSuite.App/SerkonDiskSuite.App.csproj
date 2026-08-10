@@ -9,6 +9,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>SerkonDiskSuite</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <NoWarn>$(NoWarn);NU1701</NoWarn>
 
     <!-- Tek dosya, kendi kendine yeten yayın için (dotnet publish) -->
@@ -33,6 +34,13 @@
   <!-- smartctl.exe'yi çıktı ile birlikte tools/ altına kopyala (varsa) -->
   <ItemGroup>
     <None Include="..\..\tools\**\*" Link="tools\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tools')" />
+  </ItemGroup>
+
+  <!-- MainWindow.xaml'ın Icon="Assets/app.ico" bağlaması (pack URI ile pencere sol üst
+       simgesi) için WPF kaynağı olarak dahil edilir; ApplicationIcon (üstte) ise .exe'nin
+       ve görev çubuğunun kendi Win32 simgesini ayrıca gömer — ikisi de gerekli. -->
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
   </ItemGroup>
 
 </Project>

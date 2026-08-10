@@ -5,6 +5,7 @@
                  xmlns:conv="clr-namespace:SerkonDiskSuite.App.Converters"
                  xmlns:pages="clr-namespace:SerkonDiskSuite.App.Views.Pages"
                  Title="Serkon Disk Suite" Height="760" Width="1280"
+                 Icon="/Assets/app.ico"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica"
                  WindowCornerPreference="Round"
