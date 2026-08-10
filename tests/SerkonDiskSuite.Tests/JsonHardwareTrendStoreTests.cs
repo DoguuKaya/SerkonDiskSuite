@@ -47,6 +47,25 @@ public class JsonHardwareTrendStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task AppendAsync_CalledSequentiallyThreeTimes_AccumulatesAllPoints()
+    {
+        // SORUN 3 tekrar üretimi: gerçek uygulamada SystemViewModel'in izleme döngüsü,
+        // AYNI store örneğiyle her ~5 sn'de bir SIRALI (eşzamanlı değil, önceki await
+        // tamamlandıktan sonra) AppendAsync çağırır. Önceki test yalnızca İKİ AYRI store
+        // örneğinden EŞZAMANLI çağrıyı kapsıyordu — bu, tek örnekten sıralı çağrının da
+        // doğru biriktirdiğini doğrular.
+        var store = new JsonHardwareTrendStore(_dir);
+
+        await store.AppendAsync(new HardwareTrendPoint(DateTimeOffset.Now, 40, 10, null, null));
+        await store.AppendAsync(new HardwareTrendPoint(DateTimeOffset.Now.AddSeconds(5), 41, 11, null, null));
+        await store.AppendAsync(new HardwareTrendPoint(DateTimeOffset.Now.AddSeconds(10), 42, 12, null, null));
+
+        var result = await store.LoadAsync();
+
+        Assert.Equal(3, result.Count);
+    }
+
+    [Fact]
     public async Task AppendAsync_ThenLoadAsync_ReturnsAppendedPoint()
     {
         var store = new JsonHardwareTrendStore(_dir);

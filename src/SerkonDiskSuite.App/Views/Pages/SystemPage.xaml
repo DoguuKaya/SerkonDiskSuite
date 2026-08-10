@@ -74,7 +74,7 @@
                                     <Run Text="{Binding Hardware.CpuTemperatureCelsius, Converter={StaticResource NumberToString}, Mode=OneWay}" />
                                     <Run Text="°C" />
                                 </TextBlock>
-                                <TextBlock Text="Bu sistemde okunamıyor" Style="{StaticResource Muted}"
+                                <TextBlock Text="{Binding TemperatureUnavailableMessage}" Style="{StaticResource Muted}" TextWrapping="Wrap"
                                            Visibility="{Binding Hardware.CpuTemperatureCelsius, Converter={x:Static conv:InverseNullToVisibilityConverter.Instance}}" />
                             </StackPanel>
                         </ui:Card>
@@ -118,7 +118,7 @@
                                         <Run Text="{Binding Hardware.GpuTemperatureCelsius, Converter={StaticResource NumberToString}, Mode=OneWay}" />
                                         <Run Text="°C" />
                                     </TextBlock>
-                                    <TextBlock Text="Bu sistemde okunamıyor" Style="{StaticResource Muted}"
+                                    <TextBlock Text="{Binding TemperatureUnavailableMessage}" Style="{StaticResource Muted}" TextWrapping="Wrap"
                                                Visibility="{Binding Hardware.GpuTemperatureCelsius, Converter={x:Static conv:InverseNullToVisibilityConverter.Instance}}" />
                                 </StackPanel>
                             </ui:Card>

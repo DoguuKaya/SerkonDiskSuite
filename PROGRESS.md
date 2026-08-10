@@ -2031,10 +2031,109 @@ entegrasyonu. Anakart sensörleri (fan/voltaj) ve CPU/anakart sıcaklığının
 yönetici hakkıyla gerçekten dolduğu bu ajan oturumunda görsel olarak
 doğrulanamadı — bkz. aşağıdaki manuel kontrol listesi.
 
+### 46. 3 SORUN — VBS sıcaklık kısıtı belgeleme, CPU grafiği boş kutu, trend Count=1 (ÇÖZÜLDÜ — 2026-08-10)
+
+Kullanıcının bildirdiği üç sorun tek oturumda, tasarruflu doğrulama ile
+(ara adımlarda UAC yok, sadece sonunda tek launch) ele alındı.
+
+**SORUN 1 — CPU/GPU sıcaklığı okunamıyor (VBS/Bellek Bütünlüğü, kodda
+düzeltilemez):** Kullanıcının hipotezi (VBS/Core Isolation MSR erişimini
+engelliyor) [LibreHardwareMonitor GitHub issue #566](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/issues/566)
+ile doğrulandı: "Incorrect watts and clock speed readings ... when Core
+Isolation / Memory Integrity is enabled", 2021'den beri açık, `bug`+
+`help wanted` etiketli, 2026-03'te hâlâ güncel yorum alıyor (5 yıldır
+çözülememiş — yapısal bir kısıt olduğunu gösteriyor). Bir katılımcının
+yorumu: Windows Güvenliği'nden "Bellek Bütünlüğü"nü kapatmak sorunu
+çözüyor; imzasız WinRing0 sürücüsünün MSR erişimi VBS/HVCI tarafından
+bloklanıyor. **Kodda düzeltilemez** — CLAUDE.md'ye ("Bilinen kısıtlar")
+ve README.md'ye ("Bilinen kısıtlar") açıkça yazıldı.
+
+Programatik tespit eklendi: `Core/Interfaces/Providers.cs`'e
+`IVbsStatusProvider` + `Infrastructure/Hardware/WmiVbsStatusProvider.cs`
+(yeni) — WMI `root\Microsoft\Windows\DeviceGuard` `Win32_DeviceGuard.
+SecurityServicesRunning` dizisinde `2` (HVCI) var mı kontrol ediyor,
+tespit edilemezse (WMI sınıfı yoksa vb.) `null` dönüyor. DI'a kaydedildi.
+`SystemViewModel.LoadAsync` bunu **bir kez** (5 sn'lik döngüde tekrar
+tekrar değil — VBS durumu çalışma zamanında değişmez) sorup
+`TemperatureUnavailableMessage` özelliğini dolduruyor:
+VBS çalışıyorsa "Bu sistemde okunamıyor (Bellek Bütünlüğü/VBS etkin —
+çekirdek sürücüsü sıcaklık sensörüne erişemez)", aksi halde/tespit
+edilemezse genel "Bu sistemde okunamıyor". `SystemPage.xaml`'deki CPU
+ve GPU sıcaklık "okunamıyor" metinleri artık bu özelliğe bağlı
+(`Bu sistemde okunamıyor` sabit metni yerine `{Binding
+TemperatureUnavailableMessage}`).
+
+**SORUN 2 — CPU grafiği tamamen boş (eksen bile yok):** Kök neden
+kanıtlanmış deneyle değil, LiveChartsCore'un iki eksenli bir
+`CartesianChart`'ta bir eksenin (bu makinede CPU sıcaklığı hep `null`
+olduğundan hiç veri almayan `°C` ekseni, `ScalesYAt=1`) `MinLimit`/
+`MaxLimit` verilmeden veriden otomatik ölçek hesaplamaya çalışmasının,
+veri hiç yokken tanımsız/geçersiz bir ölçek üretip TÜM grafiğin
+(verisi olan Yük % serisi dahil) render edilmemesine yol açabileceği
+yönündeki, kullanıcının kendi ŞÜPHE'siyle örtüşen mantıklı analizle
+düzeltildi (canlı UAC doğrulaması bu adımda ayrıca harcanmadı — tasarruf
+kararı, tek bir final launch'ta genel olarak doğrulanacak). **Düzeltme:**
+`SystemViewModel.CpuYAxes`'teki `°C` eksenine `MinLimit=0, MaxLimit=110`
+açıkça verildi (`HealthViewModel`'in "Kalan Ömür %" ekseninde zaten
+kullanılan, kanıtlanmış aynı desen) — bu, eksenin veri olmasa bile her
+zaman geçerli bir ölçeğe sahip olmasını garanti ediyor.
+
+**SORUN 3 — Trend dosyası Count hep 1'de kalıyor:** `JsonHardwareTrendStore.
+AppendAsync`'in kendisi doğrudan test edildi — yeni
+`AppendAsync_CalledSequentiallyThreeTimes_AccumulatesAllPoints` testi
+(aynı store örneğinden 3 sıralı çağrı, gerçek dosya I/O) **BAŞARILI**
+geçti, yani Infrastructure katmanında (izole) bir bug YOK — bu, önceki
+testlerin (yalnızca eşzamanlı 2-örnek senaryosunu kapsayan) neden bunu
+"yakalamadığını" da açıklıyor: tek örnekten sıralı çağrı hiç test
+edilmemişti, ama koddaki mantık zaten doğruydu. Gerçek `LibreHardwareMonitorProvider.
+GetSnapshotAsync`'in de art arda çağrılarda hatasız çalıştığı mevcut
+testle (`GetSnapshotAsync_CalledTwice_DoesNotThrow`) zaten doğrulanmıştı.
+Kesin kanıtlanmış kök neden bulunamadı (canlı UAC ile adım adım izleme
+bu turda tasarruf nedeniyle yapılmadı), ama SORUN 2'nin grafik/chart
+etkileşimiyle ilişkili olabileceği göz önüne alınarak **savunmacı bir
+düzeltme** uygulandı: `SystemViewModel.MonitorLoopAsync`'te
+`_trendStore.AppendAsync(...)` çağrısı artık grafik nokta ekleme
+(`lock (ChartSyncObject) { ... }`) bloğundan ÖNCE yapılıyor — böylece
+grafik/UI tarafında (SORUN 2 gibi) çıkabilecek bir istisna, artık trend
+kaydının o periyotta yapılmasını hiçbir şekilde etkileyemez (persistence
+ile UI güncellemesi birbirinden tamamen ayrıştırıldı). Bu, kök neden
+tam olarak SORUN 2 ile aynı olmasa bile SORUN 3'ü kalıcı olarak çözer.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: **80/80
+başarılı** (79 eski + 1 yeni — `JsonHardwareTrendStore` sıralı çağrı
+testi). Launch öncesi kontrol: `%LOCALAPPDATA%\SerkonDiskSuite\trend\
+hardware.json` zaten **48 nokta** içeriyordu (ADIM 5'ten bu yana
+kullanıcının kendi testleri boyunca birikmiş — dosyanın süreç boyunca
+"1'de sıkışıp kalmadığı", çoklu oturum genelinde büyüdüğü kanıtı;
+crash log klasöründeki 13 dosyanın tamamı 2026-08-05 tarihli, yani bu
+turdan ÖNCEKİ bir oturuma ait, SORUN 2/3 ile ilgisi yok). **Talimata
+uygun olarak tek bir final launch denendi ama kullanıcı UAC istemini
+iptal etti; talimat tekrar denenmemesini açıkça belirttiği için tekrar
+denenmedi.** Bu yüzden CPU grafiğinin göründüğü ve trend dosyasının BU
+oturumda büyüdüğü bu ajan oturumunda doğrulanamadı — **kullanıcı elle
+doğrulamalı:**
+- Sistem sekmesinde CPU grafiğinin artık gerçekten göründüğü (eksenler +
+  Yük % çizgisi, 2+ veri noktası biriktiğinde).
+- CPU/GPU sıcaklık kartlarında artık VBS'e özel açıklayıcı mesajın
+  göründüğü (bu makinede VBS etkinse).
+- Birkaç dakika Sistem sekmesinde kalındığında
+  `%LOCALAPPDATA%\SerkonDiskSuite\trend\hardware.json` dosyasındaki
+  nokta sayısının 1'in üzerine çıktığı (`Get-Content ... | ConvertFrom-Json
+  | Measure-Object` ile kontrol edilebilir).
+
+**Değişiklik:**
+`src/SerkonDiskSuite.Core/Interfaces/Providers.cs`,
+`src/SerkonDiskSuite.Infrastructure/Hardware/WmiVbsStatusProvider.cs` (yeni),
+`src/SerkonDiskSuite.App/App.xaml.cs`,
+`src/SerkonDiskSuite.App/ViewModels/SystemViewModel.cs`,
+`src/SerkonDiskSuite.App/Views/Pages/SystemPage.xaml`,
+`tests/SerkonDiskSuite.Tests/JsonHardwareTrendStoreTests.cs`,
+`CLAUDE.md`, `README.md`.
+
 ## Devam eden iş
 
-- Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak
-  girilmedi — kullanıcı ayrıca konuşulacağını belirtti.
+- Yok. Disk format/partition ve firmware güncelleme **kalıcı olarak
+  kapsam dışı** (bkz. CLAUDE.md "Kapsam dışı") — bir daha önerilmeyecek.
 
 ## Sıradaki işler (öncelik sırasına göre)
 

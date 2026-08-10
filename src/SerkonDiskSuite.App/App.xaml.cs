@@ -94,6 +94,7 @@ public partial class App : Application
         services.AddSingleton<IBenchmarkRunner, DiskBenchmarkRunner>();
         services.AddSingleton<ISystemInfoProvider, WmiSystemInfoProvider>();
         services.AddSingleton<IHardwareMonitorProvider, LibreHardwareMonitorProvider>();
+        services.AddSingleton<IVbsStatusProvider, WmiVbsStatusProvider>();
         services.AddSingleton<ISmartTrendStore>(_ => new JsonSmartTrendStore());
         services.AddSingleton<IHardwareTrendStore>(_ => new JsonHardwareTrendStore());
 

@@ -23,9 +23,14 @@ public partial class SystemViewModel : ObservableObject, IDisposable
     private const int WindowMinutes = 15;
     private static readonly int MaxPoints = (int)(WindowMinutes * 60 / PollInterval.TotalSeconds);
 
+    private const string GenericTemperatureUnavailableMessage = "Bu sistemde okunamıyor";
+    private const string VbsTemperatureUnavailableMessage =
+        "Bu sistemde okunamıyor (Bellek Bütünlüğü/VBS etkin — çekirdek sürücüsü sıcaklık sensörüne erişemez)";
+
     private readonly ISystemInfoProvider _systemInfoProvider;
     private readonly IHardwareMonitorProvider _hardwareMonitorProvider;
     private readonly IHardwareTrendStore _trendStore;
+    private readonly IVbsStatusProvider _vbsStatusProvider;
     private readonly ObservableCollection<DateTimePoint> _cpuLoadPoints = [];
     private readonly ObservableCollection<DateTimePoint> _cpuTemperaturePoints = [];
 
@@ -35,6 +40,12 @@ public partial class SystemViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] private SystemSummary? _summary;
     [ObservableProperty] private HardwareSnapshot? _hardware;
+
+    /// <summary>CPU/GPU sıcaklık sensörü okunamadığında gösterilecek mesaj. VBS/Bellek
+    /// Bütünlüğü çalışıyorsa (tespit edilebiliyorsa) bunu açıklayan özel bir mesaja döner —
+    /// bu, uygulamanın kodunda düzeltemeyeceği bilinen bir Windows güvenlik sınırıdır
+    /// (bkz. https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/issues/566).</summary>
+    [ObservableProperty] private string _temperatureUnavailableMessage = GenericTemperatureUnavailableMessage;
 
     /// <summary>RAM kullanım yüzdesi (0-100), <see cref="Hardware"/> her değiştiğinde
     /// yeniden hesaplanır. Toplam bilinmiyorsa null (ProgressBar boş kalır).</summary>
@@ -83,19 +94,29 @@ public partial class SystemViewModel : ObservableObject, IDisposable
         },
         new Axis
         {
+            // MinLimit/MaxLimit AÇIKÇA veriliyor: bu makinede (ve VBS/Bellek Bütünlüğü etkin
+            // birçok Windows 11 sisteminde) CPU sıcaklığı hep null kalabiliyor, bu durumda
+            // _cpuTemperaturePoints asla dolmuyor. Sınır verilmezse LiveChartsCore bu eksenin
+            // ölçeğini veriden otomatik hesaplamaya çalışır; veri hiç yoksa bu hesap tanımsız
+            // kalıp TÜM grafiğin (diğer, verisi olan seri dahil) render edilmemesine yol
+            // açabilir (SORUN 2). Sabit bir aralık (gerçekçi CPU sıcaklık üst sınırı) bu
+            // eksenin veri olmasa bile her zaman geçerli bir ölçeğe sahip olmasını garanti eder.
             Name = "°C", NamePaint = AxisTextPaint, LabelsPaint = AxisTextPaint,
             SeparatorsPaint = null, Position = AxisPosition.End,
+            MinLimit = 0, MaxLimit = 110,
         },
     ];
 
     public SystemViewModel(
         ISystemInfoProvider systemInfoProvider,
         IHardwareMonitorProvider hardwareMonitorProvider,
-        IHardwareTrendStore trendStore)
+        IHardwareTrendStore trendStore,
+        IVbsStatusProvider vbsStatusProvider)
     {
         _systemInfoProvider = systemInfoProvider;
         _hardwareMonitorProvider = hardwareMonitorProvider;
         _trendStore = trendStore;
+        _vbsStatusProvider = vbsStatusProvider;
 
         CpuSeries =
         [
@@ -123,7 +144,26 @@ public partial class SystemViewModel : ObservableObject, IDisposable
     }
 
     public async Task LoadAsync(CancellationToken ct = default)
-        => Summary = await _systemInfoProvider.GetSummaryAsync(ct);
+    {
+        Summary = await _systemInfoProvider.GetSummaryAsync(ct);
+
+        // VBS durumu çalışma zamanında değişmez (kullanıcı Windows Güvenliği'nden değiştirse
+        // bile yeniden başlatma gerektirir); bu yüzden 5 sn'lik izleme döngüsünde tekrar tekrar
+        // sorulmuyor, uygulama açılışında bir kez kontrol ediliyor.
+        bool? isMemoryIntegrityRunning;
+        try
+        {
+            isMemoryIntegrityRunning = await _vbsStatusProvider.IsMemoryIntegrityRunningAsync(ct);
+        }
+        catch
+        {
+            isMemoryIntegrityRunning = null;
+        }
+
+        TemperatureUnavailableMessage = isMemoryIntegrityRunning == true
+            ? VbsTemperatureUnavailableMessage
+            : GenericTemperatureUnavailableMessage;
+    }
 
     /// <summary>Sistem sekmesi görünür/görünmez olduğunda çağrılır; sekme kapandığında izleme durur.</summary>
     public void SetMonitoringActive(bool active)
@@ -218,6 +258,24 @@ public partial class SystemViewModel : ObservableObject, IDisposable
                 var snapshot = await _hardwareMonitorProvider.GetSnapshotAsync(ct);
                 Hardware = snapshot;
 
+                // Trend kaydı önce yapılır: grafik güncellemesi (aşağıda) LiveChartsCore'un
+                // kendi çizim/ölçekleme mantığını tetikleyebilir; bu kalıcı kayıttan tamamen
+                // ayrı bir sorumluluk olduğundan, çizim tarafında çıkabilecek bir istisnanın
+                // (ör. SORUN 2) trend dosyasının güncellenmesini etkilememesi için AppendAsync
+                // artık chart nokta ekleme bloğundan ÖNCE çağrılıyor (SORUN 3'ün savunması).
+                if (snapshot.CpuTemperatureCelsius is not null || snapshot.CpuLoadPercent is not null
+                    || snapshot.GpuTemperatureCelsius is not null || snapshot.GpuLoadPercent is not null)
+                {
+                    await _trendStore.AppendAsync(
+                        new HardwareTrendPoint(
+                            snapshot.Timestamp,
+                            snapshot.CpuTemperatureCelsius,
+                            snapshot.CpuLoadPercent,
+                            snapshot.GpuTemperatureCelsius,
+                            snapshot.GpuLoadPercent),
+                        ct);
+                }
+
                 lock (ChartSyncObject)
                 {
                     if (snapshot.CpuLoadPercent is { } load)
@@ -242,19 +300,6 @@ public partial class SystemViewModel : ObservableObject, IDisposable
                     {
                         HasCpuChartData = true;
                     }
-                }
-
-                if (snapshot.CpuTemperatureCelsius is not null || snapshot.CpuLoadPercent is not null
-                    || snapshot.GpuTemperatureCelsius is not null || snapshot.GpuLoadPercent is not null)
-                {
-                    await _trendStore.AppendAsync(
-                        new HardwareTrendPoint(
-                            snapshot.Timestamp,
-                            snapshot.CpuTemperatureCelsius,
-                            snapshot.CpuLoadPercent,
-                            snapshot.GpuTemperatureCelsius,
-                            snapshot.GpuLoadPercent),
-                        ct);
                 }
             }
             catch (OperationCanceledException)

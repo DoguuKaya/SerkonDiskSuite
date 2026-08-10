@@ -15,6 +15,8 @@ tek bir native uygulamada toplar. .NET 8 + WPF ile yazılmıştır.
 - **Benchmark:** Sıralı/rastgele okuma-yazma testi (MB/s ve IOPS), cache-bypass ile gerçekçi sonuçlar, hazır CrystalDiskMark profilleri (SEQ1M Q8T1, RND4K Q32T16 vb.) ve sıralı/rastgele için ayrı ayarlanabilir kuyruk derinliği (Q) / iş parçacığı (T).
 - **Rapor dışa aktarma:** Disk + SMART + benchmark özetini metin/JSON olarak kaydetme veya panoya kopyalama.
 - **Sistem Bilgisi:** İşletim sistemi, CPU, anakart, BIOS, RAM.
+- **Gerçek zamanlı CPU/GPU/RAM izleme (HWiNFO'nun temel karşılığı):** CPU yük/sıcaklık grafiği,
+  GPU yük/sıcaklık/VRAM (varsa), RAM kullanımı; CPU/GPU trend geçmişi loglanır.
 - **Modern koyu tema arayüz**, çoklu disk desteği.
 
 ## Ekran görüntüsü
@@ -57,6 +59,16 @@ Katmanlı (Clean Architecture) yapı — ayrıntı için [`CLAUDE.md`](CLAUDE.md
 ```
 App (WPF/MVVM)  ->  Infrastructure (smartctl, WMI, benchmark)  ->  Core (domain, saf mantık)
 ```
+
+## Bilinen kısıtlar
+- **CPU/anakart sıcaklığı bazı sistemlerde okunamaz.** Windows 11'in Sanallaştırma Tabanlı
+  Güvenlik (VBS) / Bellek Bütünlüğü (Memory Integrity) özelliği etkinken (Görev
+  Yöneticisi'nde "Sanallaştırma: Etkin"), donanım izleme kütüphanesinin (LibreHardwareMonitor)
+  kullandığı imzasız çekirdek sürücüsü sıcaklık kayıtlarına erişemez. Bu, Windows'un kasıtlı
+  bir güvenlik sınırıdır — yönetici hakkı bile bunu aşamaz ve uygulamada düzeltilemez (bkz.
+  [LibreHardwareMonitor issue #566](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/issues/566)).
+  Uygulama VBS'in etkin olduğunu tespit edebilirse bunu açıklayan bir mesaj gösterir.
+- Disk format/partition işlemleri ve firmware güncelleme desteklenmez (kapsam dışı, bkz. `CLAUDE.md`).
 
 ## Uyarı
 Disk yönetimi/benchmark işlemleri diske yazma yapar. Benchmark, hedef sürücüde geçici

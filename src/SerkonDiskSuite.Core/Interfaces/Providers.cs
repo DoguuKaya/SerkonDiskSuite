@@ -68,6 +68,16 @@ public interface IHardwareTrendStore
     Task AppendAsync(HardwareTrendPoint point, CancellationToken ct = default);
 }
 
+/// <summary>Windows'un Sanallaştırma Tabanlı Güvenlik (VBS) / Bellek Bütünlüğü (HVCI) durumunu
+/// tespit eder. Bu özellik etkinken CPU/anakart sıcaklık sensörleri LibreHardwareMonitor'ün
+/// imzasız çekirdek sürücüsüyle okunamaz (Windows'un kasıtlı güvenlik sınırı, kodda düzeltilemez —
+/// bkz. https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/issues/566).</summary>
+public interface IVbsStatusProvider
+{
+    /// <summary>Bellek Bütünlüğü (HVCI) şu anda çalışıyor mu? Tespit edilemezse null.</summary>
+    Task<bool?> IsMemoryIntegrityRunningAsync(CancellationToken ct = default);
+}
+
 /// <summary>Sistem özeti modeli.</summary>
 public sealed class SystemSummary
 {
