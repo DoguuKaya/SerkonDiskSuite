@@ -32,12 +32,37 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
+        WarnIfSmartctlMissing();
+
         var services = new ServiceCollection();
         ConfigureServices(services);
         _services = services.BuildServiceProvider();
 
         var window = _services.GetRequiredService<MainWindow>();
         window.Show();
+    }
+
+    /// <summary>smartctl.exe GPL lisanslı olduğundan yükleyici (installer) onu paketlemiyor —
+    /// kullanıcı smartmontools'u kendi indirmeli (bkz. README). Eksikse SMART özellikleri
+    /// sessizce devre dışı kalır (ConfigureServices zaten null geçiyor) ama kullanıcı NEDENİNİ
+    /// hiç bilmeyebilir; bu yüzden açılışta bir kerelik bilgilendirici bir uyarı gösteriliyor.</summary>
+    private static void WarnIfSmartctlMissing()
+    {
+        string smartctlPath = Path.Combine(AppContext.BaseDirectory, "tools", "smartctl.exe");
+        if (File.Exists(smartctlPath))
+        {
+            return;
+        }
+
+        MessageBox.Show(
+            "smartctl.exe bulunamadı (tools\\smartctl.exe). SMART disk sağlığı özellikleri " +
+            "bu çalıştırmada devre dışı olacak.\n\n" +
+            "smartmontools'u https://www.smartmontools.org/ adresinden indirip smartctl.exe'yi " +
+            "(ve DLL'lerini) uygulamanın yanındaki tools\\ klasörüne kopyalayın. Ayrıntı için " +
+            "README.md'ye bakın.",
+            "Serkon Disk Suite — smartctl bulunamadı",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
     }
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

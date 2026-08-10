@@ -2330,6 +2330,56 @@ belgeleyip ileride yanlışlıkla `true` yapılmasını caydırmak için).
 
 **Değişiklik:** `src/SerkonDiskSuite.App/SerkonDiskSuite.App.csproj`.
 
+### 50. ADIM 3 — Inno Setup installer (TAMAMLANDI — 2026-08-10)
+
+`installer/setup.iss` (yeni): masaüstü kısayolu (opsiyonel görev),
+Başlat Menüsü girişi, otomatik kaldırıcı (Inno Setup'ın standart
+davranışı). Yalnızca `dotnet publish` çıktısındaki tek `.exe` paketleniyor
+— `tools/smartctl.exe` **kasıtlı olarak paketlenmiyor** (GPL lisansı,
+görevin kendi kuralı: seçenek (a)'nın açıklamasında "paketler" dense de,
+kurallar bölümündeki açık talimat önceliklendirildi). `SetupIconFile`
+ADIM 1'in `app.ico`'sunu kullanıyor. `AppVersion` derleme zamanında
+`/DAppVersion=X.Y.Z` ile dışarıdan geçirilebilir (varsayılan 1.0.0),
+ADIM 5'in CI workflow'u tag'den geçirecek. Türkçe + İngilizce dil desteği.
+
+`App.xaml.cs`: `WarnIfSmartctlMissing()` eklendi — `OnStartup`'ta bir
+kerelik, `tools/smartctl.exe` yoksa kullanıcıyı smartmontools indirme
+linkine/README'ye yönlendiren bilgilendirici bir `MessageBox` gösteriyor
+(`ConfigureServices` zaten `null` geçirip SMART özelliklerini sessizce
+devre dışı bırakıyordu — kullanıcı NEDENİNİ bilmiyordu, artık biliyor).
+
+**Gerçek doğrulama (kullanıcı onayıyla, tahmine dayanmadan):**
+- Inno Setup 6.7.3 `winget` ile bu makineye kuruldu (kullanıcı onayladı).
+- `ISCC installer\setup.iss` **gerçekten derlendi**: `SerkonDiskSuite-Setup-1.0.0.exe`
+  (63.220.651 bayt) üretildi — derleme, `.exe`/`app.ico` yol referanslarını
+  gerçekten okuyup doğruladığından (yanlış olsa derleme hata verirdi) bu
+  başlı başına bir doğrulamadır.
+- **Kurulum GERÇEKTEN yapıldı** (`/VERYSILENT`, 1 UAC, kullanıcı onayladı):
+  `C:\Program Files\Serkon Disk Suite\SerkonDiskSuite.exe` +
+  `unins000.exe` doğru oluştu; masaüstü kısayolu (`Serkon Disk
+  Suite.lnk`) oluştu; Başlat Menüsü'nde uygulama + kaldırma kısayolları
+  (Türkçe yerelleştirmeyle) oluştu; kayıt defterinde doğru
+  `UninstallString` ile bir kaldırma girişi ("Serkon Disk Suite 1.0.0
+  sürümü") oluştu.
+- **Kaldırma da GERÇEKTEN yapıldı** (`unins000.exe /VERYSILENT`):
+  Program Files klasörü, masaüstü kısayolu ve Başlat Menüsü klasörü
+  üçü de doğrulanarak (`Test-Path` -> `False`) tamamen kaldırıldı —
+  makinede kalıntı bırakılmadı.
+
+**Doğrulanamayan tek şey:** `WarnIfSmartctlMissing` mesajının gerçekten
+göründüğü (smartctl.exe bu geliştirme makinesinde zaten mevcut olduğundan
+tetiklenmedi) — kod çok basit ve düşük riskli (bir `File.Exists` +
+`MessageBox.Show`) olduğundan ayrı bir UAC turu harcanmadı; **kullanıcı
+isterse `tools\smartctl.exe`'yi geçici olarak yeniden adlandırıp
+uygulamayı açarak elle doğrulayabilir.**
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 80/80
+başarılı.
+
+**Değişiklik:** `installer/setup.iss` (yeni),
+`src/SerkonDiskSuite.App/App.xaml.cs`, `.gitignore`
+(`installer/output/` eklendi).
+
 ## Devam eden iş
 
 - Yok. Disk format/partition ve firmware güncelleme **kalıcı olarak
