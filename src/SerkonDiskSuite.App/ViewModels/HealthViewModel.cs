@@ -90,9 +90,13 @@ public partial class HealthViewModel : ObservableObject, IDisposable
     [
         new Axis
         {
+            // UnitWidth/MinStep = PollInterval.Ticks BİLEREK KALDIRILDI (madde 47): bu, canlı
+            // grafiğin (Trend Geçmişi'nin aksine) hiçbir eksen/çizgi olmadan TAMAMEN boş
+            // görünmesinin gerçek kök nedeniydi — kullanıcının kendi gözlemiyle (Trend
+            // Geçmişi eksenleri görünüyor, bu eksen hiç yoktu) doğrulandı: bu ikisi arasındaki
+            // TEK yapısal fark buydu. LiveChartsCore'un ölçek hesabını veriden otomatik
+            // yapmasına bırakılıyor (History eksenlerinde zaten çalışan aynı yaklaşım).
             Labeler = value => new DateTime((long)value).ToString("HH:mm:ss"),
-            UnitWidth = PollInterval.Ticks,
-            MinStep = PollInterval.Ticks,
             LabelsPaint = AxisTextPaint,
             SeparatorsPaint = AxisSeparatorPaint,
         }

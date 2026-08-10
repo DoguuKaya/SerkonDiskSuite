@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
-using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using SerkonDiskSuite.Core.Interfaces;
@@ -58,10 +57,13 @@ public partial class SystemViewModel : ObservableObject, IDisposable
             : null;
     }
 
-    /// <summary>Canlı CPU grafiğinde en az bir çizgi çizilebilir mi (2+ nokta)? Aksi hâlde
+    /// <summary>Canlı Yük grafiğinde en az bir çizgi çizilebilir mi (2+ nokta)? Aksi hâlde
     /// "Veri bekleniyor..." yer tutucusu gösterilir — HealthViewModel'in madde A1'de bulduğu
     /// desenle tutarlı (GeometrySize=0 tek noktada hiçbir şey çizmez).</summary>
-    [ObservableProperty] private bool _hasCpuChartData;
+    [ObservableProperty] private bool _hasCpuLoadChartData;
+
+    /// <summary>Canlı Sıcaklık grafiğinde en az bir çizgi çizilebilir mi (2+ nokta)?</summary>
+    [ObservableProperty] private bool _hasCpuTemperatureChartData;
 
     /// <summary>LiveCharts'ın arka plan iş parçacığından güvenle güncellenebilmesi için kilit nesnesi.</summary>
     public object ChartSyncObject { get; } = new();
@@ -71,40 +73,44 @@ public partial class SystemViewModel : ObservableObject, IDisposable
     private static readonly SolidColorPaint LoadSeriesPaint = new(new SKColor(0x60, 0xA5, 0xFA), 2);
     private static readonly SolidColorPaint TemperatureSeriesPaint = new(new SKColor(0xFB, 0x92, 0x3C), 2);
 
-    public ISeries[] CpuSeries { get; }
+    /// <summary>CPU yük (%) ve sıcaklık (°C) ayrı grafiklerde gösterilir (madde 47) — tek
+    /// grafikte iki farklı birimi çift eksenle göstermek kafa karıştırıcıydı, özellikle
+    /// sıcaklık bu makinede hiç okunamadığından o eksen boş duruyordu. Sağlık sayfasının
+    /// Trend Geçmişi bölümündeki iki-grafik desenine tutarlı.</summary>
+    public ISeries[] CpuLoadSeries { get; }
+    public ISeries[] CpuTemperatureSeries { get; }
 
     public Axis[] CpuXAxes { get; } =
     [
         new Axis
         {
+            // UnitWidth/MinStep KASITLI OLARAK YOK (madde 47): bu ikisi verilince canlı
+            // grafik hiçbir eksen/çizgi olmadan TAMAMEN boş render ediliyordu — kanıtlanmış
+            // kök neden (Sağlık sayfasının çalışan Trend Geçmişi eksenleriyle karşılaştırılıp
+            // bulundu, tahmin değil). LiveChartsCore'un ölçeği veriden otomatik hesaplamasına
+            // bırakılıyor.
             Labeler = value => new DateTime((long)value).ToString("HH:mm:ss"),
-            UnitWidth = PollInterval.Ticks,
-            MinStep = PollInterval.Ticks,
             LabelsPaint = AxisTextPaint,
             SeparatorsPaint = AxisSeparatorPaint,
         }
     ];
 
-    public Axis[] CpuYAxes { get; } =
+    public Axis[] CpuLoadYAxes { get; } =
     [
         new Axis
         {
-            Name = "Yük %", NamePaint = AxisTextPaint, LabelsPaint = AxisTextPaint,
+            Name = "%", NamePaint = AxisTextPaint, LabelsPaint = AxisTextPaint,
             SeparatorsPaint = AxisSeparatorPaint, MinLimit = 0, MaxLimit = 100,
-        },
+        }
+    ];
+
+    public Axis[] CpuTemperatureYAxes { get; } =
+    [
         new Axis
         {
-            // MinLimit/MaxLimit AÇIKÇA veriliyor: bu makinede (ve VBS/Bellek Bütünlüğü etkin
-            // birçok Windows 11 sisteminde) CPU sıcaklığı hep null kalabiliyor, bu durumda
-            // _cpuTemperaturePoints asla dolmuyor. Sınır verilmezse LiveChartsCore bu eksenin
-            // ölçeğini veriden otomatik hesaplamaya çalışır; veri hiç yoksa bu hesap tanımsız
-            // kalıp TÜM grafiğin (diğer, verisi olan seri dahil) render edilmemesine yol
-            // açabilir (SORUN 2). Sabit bir aralık (gerçekçi CPU sıcaklık üst sınırı) bu
-            // eksenin veri olmasa bile her zaman geçerli bir ölçeğe sahip olmasını garanti eder.
             Name = "°C", NamePaint = AxisTextPaint, LabelsPaint = AxisTextPaint,
-            SeparatorsPaint = null, Position = AxisPosition.End,
-            MinLimit = 0, MaxLimit = 110,
-        },
+            SeparatorsPaint = AxisSeparatorPaint,
+        }
     ];
 
     public SystemViewModel(
@@ -118,7 +124,7 @@ public partial class SystemViewModel : ObservableObject, IDisposable
         _trendStore = trendStore;
         _vbsStatusProvider = vbsStatusProvider;
 
-        CpuSeries =
+        CpuLoadSeries =
         [
             new LineSeries<DateTimePoint>
             {
@@ -128,8 +134,10 @@ public partial class SystemViewModel : ObservableObject, IDisposable
                 Name = "CPU Yük (%)",
                 Stroke = LoadSeriesPaint,
                 Fill = null,
-                ScalesYAt = 0,
             },
+        ];
+        CpuTemperatureSeries =
+        [
             new LineSeries<DateTimePoint>
             {
                 Values = _cpuTemperaturePoints,
@@ -138,7 +146,6 @@ public partial class SystemViewModel : ObservableObject, IDisposable
                 Name = "CPU Sıcaklık (°C)",
                 Stroke = TemperatureSeriesPaint,
                 Fill = null,
-                ScalesYAt = 1,
             },
         ];
     }
@@ -233,9 +240,14 @@ public partial class SystemViewModel : ObservableObject, IDisposable
                 }
             }
 
-            if (_cpuLoadPoints.Count >= 2 || _cpuTemperaturePoints.Count >= 2)
+            if (_cpuLoadPoints.Count >= 2)
             {
-                HasCpuChartData = true;
+                HasCpuLoadChartData = true;
+            }
+
+            if (_cpuTemperaturePoints.Count >= 2)
+            {
+                HasCpuTemperatureChartData = true;
             }
         }
 
@@ -261,8 +273,8 @@ public partial class SystemViewModel : ObservableObject, IDisposable
                 // Trend kaydı önce yapılır: grafik güncellemesi (aşağıda) LiveChartsCore'un
                 // kendi çizim/ölçekleme mantığını tetikleyebilir; bu kalıcı kayıttan tamamen
                 // ayrı bir sorumluluk olduğundan, çizim tarafında çıkabilecek bir istisnanın
-                // (ör. SORUN 2) trend dosyasının güncellenmesini etkilememesi için AppendAsync
-                // artık chart nokta ekleme bloğundan ÖNCE çağrılıyor (SORUN 3'ün savunması).
+                // trend dosyasının güncellenmesini etkilememesi için AppendAsync artık grafik
+                // nokta ekleme bloğundan ÖNCE çağrılıyor.
                 if (snapshot.CpuTemperatureCelsius is not null || snapshot.CpuLoadPercent is not null
                     || snapshot.GpuTemperatureCelsius is not null || snapshot.GpuLoadPercent is not null)
                 {
@@ -285,6 +297,11 @@ public partial class SystemViewModel : ObservableObject, IDisposable
                         {
                             _cpuLoadPoints.RemoveAt(0);
                         }
+
+                        if (_cpuLoadPoints.Count >= 2)
+                        {
+                            HasCpuLoadChartData = true;
+                        }
                     }
 
                     if (snapshot.CpuTemperatureCelsius is { } temp)
@@ -294,11 +311,11 @@ public partial class SystemViewModel : ObservableObject, IDisposable
                         {
                             _cpuTemperaturePoints.RemoveAt(0);
                         }
-                    }
 
-                    if (_cpuLoadPoints.Count >= 2 || _cpuTemperaturePoints.Count >= 2)
-                    {
-                        HasCpuChartData = true;
+                        if (_cpuTemperaturePoints.Count >= 2)
+                        {
+                            HasCpuTemperatureChartData = true;
+                        }
                     }
                 }
             }

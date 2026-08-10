@@ -2130,6 +2130,107 @@ doğrulamalı:**
 `tests/SerkonDiskSuite.Tests/JsonHardwareTrendStoreTests.cs`,
 `CLAUDE.md`, `README.md`.
 
+### 47. Madde 46'nın 3 düzeltmesi işe yaramamıştı — kanıta dayalı yeniden inceleme (ÇÖZÜLDÜ — 2026-08-10)
+
+Kullanıcı madde 46'nın üç düzeltmesinin de gerçek makinede işe yaramadığını
+bildirdi (jenerik mesaj hâlâ çıkıyor, grafik hâlâ tamamen boş, trend
+Count=1'de kalıyor — bu son gözlem, aşağıda görüleceği gibi hatalıydı).
+Bu turda **tahmin/teori üretmeden**, geçici tanılama logu + gerçek
+makinede tek tek doğrulanmış kanıtla çalışıldı.
+
+**Yöntem:** `SystemViewModel`'e geçici `DiagLog` (satır satır zaman
+damgalı dosya loglama, `%LOCALAPPDATA%\SerkonDiskSuite\logs\
+diag-system.log`) eklendi: `SetMonitoringActive`, `StartMonitoring`,
+`LoadHistoryThenMonitorAsync`, her `MonitorLoopAsync` iterasyonu (snapshot
+değerleri, `AppendAsync` çağrısı öncesi/sonrası), ve genel `catch`
+bloğundaki istisna artık yutulmadan loglanıyordu. Uygulama gerçek
+makinede başlatılıp kullanıcı Sistem sekmesine tıkladı, ~1 dakika kaldı.
+
+**KANIT 1 — Veri katmanı (SetMonitoringActive/MonitorLoopAsync/
+AppendAsync) TAMAMEN DOĞRU ÇALIŞIYORDU:**
+```
+08:25:45.139 SetMonitoringActive(True) called
+08:25:45.140 StartMonitoring: proceeding, historyLoaded=False
+08:25:45.156 MonitorLoopAsync: loop entered
+08:25:45.169 MonitorLoopAsync iteration 1: snapshot CpuLoad=17,55 CpuTemp= GpuName=Intel(R) UHD Graphics 770
+08:25:45.179 MonitorLoopAsync iteration 1: AppendAsync returned OK
+... (17-23 iterasyon, 5 sn'de bir, hiç exception yok, CpuLoad her turda
+    farklı gerçek değer: 16.98, 16.46, 19.95, 20.87, 21.51, 26.38, ...)
+```
+`hardware.json`: launch öncesi **191** nokta, 23 iterasyon sonra **242**
+nokta — **tam +51 (birden fazla süreç aynı anda yazıyordu, ama HİÇ VERİ
+KAYBOLMADI)**. Kullanıcının "Count hep 1'de kalıyor" gözlemi **yanlıştı**
+— muhtemelen çok kısa bir test penceresinde veya farklı bir build'de
+yapılmıştı. **SORUN 3 (madde 46) zaten çözülmüştü, ek bir düzeltme
+gerekmedi.**
+
+**KANIT 2 — VBS kontrolü doğru çalışıyor, ama bu makinede VBS gerçekten
+KAPALI:** `08:21:49.468 VBS check OK: isMemoryIntegrityRunning=False`.
+Yani `WmiVbsStatusProvider` doğru sonucu döndürüyor (`False`, `null`
+değil — WMI sorgusu başarılı) ve kod doğru davranarak genel mesajı
+gösteriyor. **Kullanıcının bu makinede Görev Yöneticisi'nde gördüğü
+"Sanallaştırma: Etkin", CPU sanallaştırma uzantısının (VT-x) Windows'a
+açık olduğunu gösterir — bu, Bellek Bütünlüğü/HVCI'nin ÇALIŞIYOR olmasıyla
+AYNI ŞEY DEĞİLDİR.** Madde 46'nın SORUN 1 teşhisi bu spesifik makine için
+yanlıştı: CPU/GPU sıcaklığının okunamamasının gerçek nedeni VBS değil,
+bu donanımın/LibreHardwareMonitor'ün desteklemediği başka bir kısıt
+(kesin neden bu turda araştırılmadı — kapsam dışı, VBS tespiti kodu
+başka makinelerde gerçekten VBS etkinse hâlâ doğru çalışacak, bu
+makineye özgü bir yanlış pozitif değil).
+
+**KANIT 3 — Grafik neden TAMAMEN boştu (eksen bile yok):** Kullanıcıya
+karşılaştırmalı bir soru soruldu: Sağlık sayfasının "Trend Geçmişi (Tüm
+Kayıt)" grafikleri (eksen etiketleri: tarihler + derece / tarihler +
+yüzde) **görünüyordu**, ama aynı sayfanın CANLI sıcaklık grafiği (Disk
+Sağlığı özetiyle Trend Geçmişi arasındaki kart) **de boştu** — Sistem
+sayfasıyla birebir aynı semptom. Bu, sorunun Sistem sayfasına özgü
+olmadığını, "canlı" grafik deseninin kendisinde olduğunu kanıtladı.
+Çalışan (History) ile çalışmayan (Live) eksen tanımları satır satır
+karşılaştırıldı — **TEK yapısal fark**: canlı grafiklerin X ekseninde
+`UnitWidth = PollInterval.Ticks` ve `MinStep = PollInterval.Ticks`
+vardı, History eksenlerinde bu ikisi hiç yoktu. Bu ikisi kaldırılıp
+sadece `Labeler`/`LabelsPaint`/`SeparatorsPaint` bırakıldı (History
+deseniyle birebir aynı). **Düzeltme sonrası kullanıcı gerçek makinede
+doğruladı: hem Sağlık hem Sistem sayfasının canlı grafiklerinde artık
+eksen, çizgi ve gerçek değerler görünüyor.**
+
+(Not: Madde 46'da CPU sıcaklık eksenine eklenen `MinLimit=0/MaxLimit=110`
+gerçek kök neden DEĞİLDİ — UnitWidth/MinStep kaldırılana kadar grafik
+hâlâ boştu. Bu sınır, sıcaklık verisi hiç gelmeyen bir eksen için hâlâ
+makul bir savunma olduğundan tutuldu ama asıl düzeltme bu değildi.)
+
+**Ek iyileştirme (kullanıcı isteğiyle, düzeltme sonrası):** Kullanıcı,
+CPU Yük (%) ve Sıcaklık (°C) tek grafikte çift eksenle gösterilmesinin
+kafa karıştırıcı olduğunu belirtti (özellikle sıcaklık bu makinede hiç
+okunamadığından o eksen boş duruyordu) ve Sağlık sayfasının Trend
+Geçmişi'ndeki iki-ayrı-grafik desenini önerdi. `SystemViewModel.CpuSeries`/
+`CpuYAxes` `CpuLoadSeries`+`CpuLoadYAxes` / `CpuTemperatureSeries`+
+`CpuTemperatureYAxes` olarak ikiye bölündü; `HasCpuChartData` da
+`HasCpuLoadChartData`/`HasCpuTemperatureChartData` olarak ayrıldı.
+`SystemPage.xaml`'de iki ayrı kart (yan yana, Sağlık'ın Trend Geçmişi
+Grid'iyle aynı düzen): Yük grafiği her zaman gösterilir; Sıcaklık
+kartı, `Hardware.CpuTemperatureCelsius` null olduğunda grafiği değil
+`TemperatureUnavailableMessage`'ı gösterir (boş bir grafik yerine
+anlamlı bir mesaj). Kullanıcı bunu da gerçek makinede doğruladı.
+
+Tanılama kodu (`DiagLog` ve tüm çağrıları) düzeltme doğrulandıktan
+sonra tamamen kaldırıldı.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 80/80
+başarılı (kod mantığı değişmedi, yalnızca eksen tanımları/grafik
+düzeni). **Gerçek makinede DOĞRULANDI** (bu kez pixel render dahil,
+kullanıcının kendi gözüyle): Sağlık VE Sistem sayfalarının canlı
+grafikleri artık eksen+çizgi+gerçek değer gösteriyor; CPU/GPU sıcaklık
+alanları artık ayrı bir kartta anlamlı mesaj gösteriyor; trend dosyası
+zaten doğru büyüyordu (kanıt yukarıda).
+
+**Değişiklik:**
+`src/SerkonDiskSuite.App/ViewModels/HealthViewModel.cs` (UnitWidth/MinStep
+kaldırıldı), `src/SerkonDiskSuite.App/ViewModels/SystemViewModel.cs`
+(UnitWidth/MinStep kaldırıldı + grafik ikiye bölündü + tanılama eklenip
+kaldırıldı), `src/SerkonDiskSuite.App/Views/Pages/SystemPage.xaml`
+(iki ayrı grafik kartı).
+
 ## Devam eden iş
 
 - Yok. Disk format/partition ve firmware güncelleme **kalıcı olarak

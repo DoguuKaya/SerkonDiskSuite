@@ -80,19 +80,46 @@
                         </ui:Card>
                     </UniformGrid>
 
-                    <ui:Card Margin="4,4,4,12" Padding="8" Height="160">
-                        <Grid>
-                            <lvc:CartesianChart Series="{Binding CpuSeries}"
-                                                 XAxes="{Binding CpuXAxes}"
-                                                 YAxes="{Binding CpuYAxes}"
-                                                 SyncContext="{Binding ChartSyncObject}"
-                                                 Background="Transparent" />
-                            <TextBlock Text="Veri bekleniyor..." Style="{StaticResource Muted}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       IsHitTestVisible="False"
-                                       Visibility="{Binding HasCpuChartData, Converter={x:Static conv:InverseBoolToVisibilityConverter.Instance}}" />
-                        </Grid>
-                    </ui:Card>
+                    <Grid Margin="0,4,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:Card Grid.Column="0" Margin="0,0,4,0" Padding="8" Height="160">
+                            <Grid>
+                                <lvc:CartesianChart Series="{Binding CpuLoadSeries}"
+                                                     XAxes="{Binding CpuXAxes}"
+                                                     YAxes="{Binding CpuLoadYAxes}"
+                                                     SyncContext="{Binding ChartSyncObject}"
+                                                     Background="Transparent" />
+                                <TextBlock Text="Veri bekleniyor..." Style="{StaticResource Muted}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           IsHitTestVisible="False"
+                                           Visibility="{Binding HasCpuLoadChartData, Converter={x:Static conv:InverseBoolToVisibilityConverter.Instance}}" />
+                            </Grid>
+                        </ui:Card>
+                        <!-- Sıcaklık her zaman okunamıyorsa (bu makinede olduğu gibi) grafik yerine
+                             açıklayıcı mesaj gösterilir; boş bir eksen/çizgi göstermek yerine. -->
+                        <ui:Card Grid.Column="1" Margin="4,0,0,0" Padding="8" Height="160">
+                            <Grid>
+                                <Grid Visibility="{Binding Hardware.CpuTemperatureCelsius, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
+                                    <lvc:CartesianChart Series="{Binding CpuTemperatureSeries}"
+                                                         XAxes="{Binding CpuXAxes}"
+                                                         YAxes="{Binding CpuTemperatureYAxes}"
+                                                         SyncContext="{Binding ChartSyncObject}"
+                                                         Background="Transparent" />
+                                    <TextBlock Text="Veri bekleniyor..." Style="{StaticResource Muted}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               IsHitTestVisible="False"
+                                               Visibility="{Binding HasCpuTemperatureChartData, Converter={x:Static conv:InverseBoolToVisibilityConverter.Instance}}" />
+                                </Grid>
+                                <TextBlock Text="{Binding TemperatureUnavailableMessage}" Style="{StaticResource Muted}"
+                                           TextWrapping="Wrap" TextAlignment="Center"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="{Binding Hardware.CpuTemperatureCelsius, Converter={x:Static conv:InverseNullToVisibilityConverter.Instance}}" />
+                            </Grid>
+                        </ui:Card>
+                    </Grid>
 
                     <!-- GPU: bu makinede GPU bulunamazsa (Hardware.GpuName null) bölüm tamamen gizlenir. -->
                     <StackPanel Visibility="{Binding Hardware.GpuName, Converter={x:Static conv:NullToVisibilityConverter.Instance}}">
