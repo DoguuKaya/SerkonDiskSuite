@@ -35,3 +35,8 @@ run.ps1
 
 # Claude Code'un kendi ayar/plugin klasörü (repoya ait değil)
 .claude/
+
+# Geliştirme süreci notları (yerel, GitHub'da görünmesin)
+PROGRESS.md
+CLAUDE.md
+.claude/
