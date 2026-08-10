@@ -2380,6 +2380,32 @@ başarılı.
 `src/SerkonDiskSuite.App/App.xaml.cs`, `.gitignore`
 (`installer/output/` eklendi).
 
+### 51. ADIM 4 — Repo klasör/dosya düzeni temizliği (TAMAMLANDI — 2026-08-10)
+
+- `run.ps1` (kullanıcının kendi build+run kolaylık betiği, repoya ait
+  değil, izlenmiyordu) `.gitignore`'a eklendi — repodan kaldırılmadı,
+  sadece bundan sonra izlenmeyecek.
+- `installer/output/` de `.gitignore`'a eklendi (ADIM 3'te zaten
+  eklenmişti, burada tekrar teyit edildi).
+- `docs/SCREENSHOT.png` <-> `README.md`'deki referans büyük/küçük harf
+  uyumu tekrar kontrol edildi: `![Serkon Disk Suite](docs/SCREENSHOT.png)`
+  — hâlâ birebir eşleşiyor (madde 40 D1'in düzeltmesi bozulmamış).
+- `tools/README.md` incelendi: mevcut tek satır ("smartctl.exe ve
+  DLL'lerini buraya koyun, bkz. README") hâlâ doğru ve güncel, değişiklik
+  gerekmedi.
+- `.github/workflows/ci.yml` incelendi: `build-and-test` işi zaten
+  `dotnet build`/`dotnet test` çalıştırıyor; `publish` işi ADIM 2'de
+  yerelde doğrulanan **aynı** komutu (`dotnet publish src/SerkonDiskSuite.App
+  -c Release`) kullanıyor, bu turun `ApplicationIcon`/`PublishReadyToRun`/
+  `InvariantGlobalization` eklemeleriyle bozulmasını gerektirecek bir
+  şey yok — değişiklik gerekmedi (ADIM 5 ayrı bir `release.yml` ekleyecek,
+  `ci.yml`'e dokunulmadı).
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 80/80
+başarılı.
+
+**Değişiklik:** `.gitignore`.
+
 ## Devam eden iş
 
 - Yok. Disk format/partition ve firmware güncelleme **kalıcı olarak

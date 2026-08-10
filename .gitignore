@@ -29,3 +29,6 @@ tools/*.dll
 # İşletim sistemi
 Thumbs.db
 .DS_Store
+
+# Kullanıcının kendi geliştirme kolaylığı betiği (repoya ait değil)
+run.ps1
