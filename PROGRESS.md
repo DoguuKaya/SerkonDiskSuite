@@ -2406,6 +2406,50 @@ başarılı.
 
 **Değişiklik:** `.gitignore`.
 
+### 52. ADIM 5 — GitHub Actions release.yml (TAMAMLANDI — 2026-08-10)
+
+`.github/workflows/release.yml` (yeni): `v*` etiketi push'landığında
+tetikleniyor (kimse bu turda bir etiket OLUŞTURMADI/PUSH'LAMADI —
+kullanıcıya bırakıldı, talimata uygun). İki iş: `build-and-test`
+(mevcut `ci.yml` ile aynı adımlar) + `package` (etiketten sürüm
+çıkarma, `dotnet publish`, taşınabilir `.zip`, Inno Setup kurup
+installer derleme, `actions/upload-artifact` + `softprops/action-gh-release`
+ile GitHub Release'e yükleme).
+
+**Gerçek doğrulama (tahmine dayanmadan):**
+- Bu repo GitHub'a bağlı (`origin` -> `DoguuKaya/SerkonDiskSuite`) ve
+  `ci.yml` gerçekten **8 kez** çalışıp başarılı olmuş (en sonuncusu
+  bugün) — bu, `actions/checkout@v4`/`actions/setup-dotnet@v4`/
+  `actions/upload-artifact@v4` ve `dotnet build/test/publish`
+  adımlarının bu repoda GERÇEKTEN çalıştığını kanıtlıyor (tahmin değil).
+- `softprops/action-gh-release`'in gerçek en güncel sürümü GitHub
+  releases API'sinden doğrulandı: **v3.0.2** (2026-07-13) — tahmin
+  edilmedi.
+- Inno Setup'ın `windows-latest` runner imajında HER ZAMAN bulunmadığı
+  araştırıldı (`actions/runner-images` deposundaki gerçek issue'lar:
+  6.4.0 windows-2022'de vardı ama windows-2025'te yok, önerilen çözüm
+  Chocolatey ile kurmak) — bu yüzden workflow'a açık bir
+  `choco install innosetup` adımı eklendi, runner imajının içeriğine
+  güvenilmedi.
+- Betiğin YAML sözdizimi yerel olarak `python -c "yaml.safe_load(...)"`
+  ile doğrulandı (**geçerli**).
+- **Gerçek bir bug bulunup düzeltildi:** PowerShell'de
+  `$env:ProgramFiles(x86)` yazımı GEÇERSİZ (parantez ayrıştırmayı
+  bozuyor) — bu ifade yerelde gerçekten çalıştırılıp hatası kanıtlandı,
+  `${env:ProgramFiles(x86)}` (küme parantezli) olarak düzeltilip yerelde
+  tekrar çalıştırılarak (hatasız, doğru yolları üretti) doğrulandı.
+- **Doğrulanamayan tek kısım:** `package` işinin tamamı (Inno Setup
+  kurulumu + ISCC + `action-gh-release`) — bu, gerçek bir `v*` etiketi
+  push'lanmadan GitHub Actions'ta uçtan uca tetiklenemez; talimat
+  gereği etiket oluşturma/push kullanıcıya bırakıldı. Kullanıcı ilk
+  etiketi (`git tag v1.0.0 && git push origin v1.0.0`) push'ladığında
+  bu iş gerçek ortamda ilk kez çalışacak.
+
+**Doğrulama:** `dotnet build`: 0 hata/0 uyarı. `dotnet test`: 80/80
+başarılı (bu adımda uygulama kodu değişmedi).
+
+**Değişiklik:** `.github/workflows/release.yml` (yeni).
+
 ## Devam eden iş
 
 - Yok. Disk format/partition ve firmware güncelleme **kalıcı olarak
