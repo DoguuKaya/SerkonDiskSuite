@@ -32,3 +32,6 @@ Thumbs.db
 
 # Kullanıcının kendi geliştirme kolaylığı betiği (repoya ait değil)
 run.ps1
+
+# Claude Code'un kendi ayar/plugin klasörü (repoya ait değil)
+.claude/
