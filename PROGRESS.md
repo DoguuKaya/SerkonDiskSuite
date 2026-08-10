@@ -2282,6 +2282,54 @@ artık göründüğünü gerçek makinede doğruladı.
 `src/SerkonDiskSuite.App/SerkonDiskSuite.App.csproj`,
 `src/SerkonDiskSuite.App/Views/MainWindow.xaml`.
 
+### 49. ADIM 2 — Publish yapılandırması + gerçek publish testi (TAMAMLANDI — 2026-08-10)
+
+`SerkonDiskSuite.App.csproj`: `PublishSingleFile`/`SelfContained`/
+`IncludeNativeLibrariesForSelfExtract` zaten vardı (önceki oturumdan).
+Eklenen: `<PublishReadyToRun>true</PublishReadyToRun>` (başlangıç hızı),
+`<InvariantGlobalization>false</InvariantGlobalization>` (AÇIKÇA false —
+varsayılan da bu ama `DisplayFormatting.cs`'in tr-TR bağımlılığını
+belgeleyip ileride yanlışlıkla `true` yapılmasını caydırmak için).
+
+**Gerçek `dotnet publish -c Release` ile bulunup düzeltilen 2 bug:**
+
+1. **`tools/icon-gen` (ADIM 1'in ikon aracı) publish çıktısına
+   sızıyordu** — mevcut `<None Include="..\..\tools\**\*">` glob'u
+   recursive olduğundan `tools/icon-gen/`'in kaynak kodunu VE kendi
+   `bin`/`obj` klasörlerini de topluyordu. **Düzeltme:**
+   `Exclude="..\..\tools\icon-gen\**\*"` eklendi.
+
+2. **`tools/smartctl.exe` publish çıktısında HİÇ YOKTU** (`tools/README.md`
+   vardı, `smartctl.exe` yoktu — ikisi aynı glob'dan geliyordu).
+   `dotnet build -getItem:None` ile öğe listesi doğrulandı: MSBuild
+   `smartctl.exe`'yi doğru `Link`/`CopyToOutputDirectory` metadata'sıyla
+   çözümlüyordu (Debug build çıktısında da gerçekten vardı), ama
+   `dotnet publish`'in `PublishSingleFile` boru hattı onu atlıyordu.
+   **Düzeltme:** Glob'a `CopyToPublishDirectory="PreserveNewest"` +
+   `ExcludeFromSingleFile="true"` eklendi (yalnızca `CopyToOutputDirectory`
+   normal build çıktısına kopyalar ama tek-dosya publish'e otomatik
+   taşınmayabiliyor; `ExcludeFromSingleFile`, native bir `.exe`'nin
+   bundle'a gömülmeye çalışılmadan ayrı bir dosya olarak kalmasını
+   garanti ediyor).
+
+**Doğrulama (tahmine dayanmadan, iki kez temiz publish ile):**
+- Temiz `dotnet publish`: tek `SerkonDiskSuite.exe` (self-contained,
+  ~226 MB — .NET çalışma zamanı + ReadyToRun + tüm bağımlılıklar dahil),
+  `publish/tools/smartctl.exe` (1.165.312 bayt, kaynağıyla birebir) ve
+  `publish/tools/README.md` var; `publish/tools/icon-gen` **yok**
+  (doğru şekilde hariç tutuldu).
+- `dotnet build`/`dotnet test`: 0 hata/0 uyarı, 80/80 başarılı.
+- **Gerçek publish çıktısı GERÇEKTEN çalıştırıldı** (Debug build değil —
+  ilk kez bu çıktı test edildi): yönetici olarak başlatıldı (1 UAC),
+  launch öncesi/sonrası crash log sayısı karşılaştırıldı (14 -> 14, fark
+  yok). Kullanıcı gerçek makinede doğruladı: SMART verisi geldi (yani
+  tek-dosya publish'te `AppContext.BaseDirectory` yanındaki
+  `tools/smartctl.exe`'yi doğru buluyor) ve tr-TR sayı biçimlendirmesi
+  (virgüllü ondalık) çalışıyor (`InvariantGlobalization=false` doğru
+  etkili).
+
+**Değişiklik:** `src/SerkonDiskSuite.App/SerkonDiskSuite.App.csproj`.
+
 ## Devam eden iş
 
 - Yok. Disk format/partition ve firmware güncelleme **kalıcı olarak

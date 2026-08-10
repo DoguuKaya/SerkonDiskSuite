@@ -17,6 +17,12 @@
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- Başlangıç hızı için önceden JIT edilmiş kod (AOT değil, hâlâ JIT'e düşebilir). -->
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <!-- AÇIKÇA false: varsayılan da false ama DisplayFormatting.cs tr-TR'ye (binlik/ondalık
+         ayraç) bağımlı olduğundan, ileride biri "boyutu küçült" diye Invariant modu true
+         yaparsa tüm sayı/tarih biçimlendirmesi bozulur — bu niyet burada açıkça belgeleniyor. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,9 +37,12 @@
     <ProjectReference Include="..\SerkonDiskSuite.Infrastructure\SerkonDiskSuite.Infrastructure.csproj" />
   </ItemGroup>
 
-  <!-- smartctl.exe'yi çıktı ile birlikte tools/ altına kopyala (varsa) -->
+  <!-- smartctl.exe'yi çıktı ile birlikte tools/ altına kopyala (varsa). icon-gen/ hariç
+       tutulur — o, ikon üretmek için bir kerelik çalıştırılan geliştirici aracı, uygulamanın
+       kendisiyle dağıtılmaması gerekir (kaynak kodu + kendi bin/obj'unu publish çıktısına
+       sızdırıyordu, gerçek publish testinde bulundu). -->
   <ItemGroup>
-    <None Include="..\..\tools\**\*" Link="tools\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\tools')" />
+    <None Include="..\..\tools\**\*" Exclude="..\..\tools\icon-gen\**\*" Link="tools\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Condition="Exists('..\..\tools')" />
   </ItemGroup>
 
   <!-- MainWindow.xaml'ın Icon="Assets/app.ico" bağlaması (pack URI ile pencere sol üst
