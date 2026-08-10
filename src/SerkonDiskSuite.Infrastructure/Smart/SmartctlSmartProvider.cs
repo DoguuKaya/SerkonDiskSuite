@@ -383,18 +383,61 @@ public sealed class SmartctlSmartProvider : ISmartProvider
         return candidates.Count == 1 ? firstValid : null;
     }
 
-    private static bool MatchesDisk(string json, DiskInfo disk)
+    /// <summary>
+    /// Bir smartctl "--scan" adayının, WMI'dan gelen DiskInfo ile aynı fiziksel diski temsil
+    /// edip etmediğini belirler. ÖNCE seri no denenir (varsa), AMA seri no WMI ile smartctl
+    /// arasında birebir eşleşmeyebilir — gerçek bir NVMe sürücüde (Kingston SNV2S1000G)
+    /// doğrulandı: WMI `Win32_DiskDrive.SerialNumber` = "0000_0000_0000_0000_0026_B778_58A7_DF35."
+    /// (20 bayt, alt tire ayraçlı, ham NVMe SN alanının farklı bir kodlaması), smartctl
+    /// `serial_number` = "50026B77858A7DF3" — AYNI DİSK, hiçbir normalizasyonla (trim/case/
+    /// tire temizleme) eşleşmeyen tamamen farklı biçimler. Bu yüzden seri no eşleşmezse
+    /// model adı + kapasite kombinasyonuna düşülür — bu ikisi gerçek makinede sırasıyla
+    /// birebir ("KINGSTON SNV2S1000G" == "KINGSTON SNV2S1000G") ve ~%99,9997 yakın
+    /// (WMI 1.000.202.273.280 bayt / smartctl 1.000.204.886.016 bayt, ~2,6 MB fark —
+    /// mantıksal/hizalama farkı) çıktı, seri no'dan çok daha güvenilir.
+    /// </summary>
+    public static bool MatchesDisk(string json, DiskInfo disk)
     {
-        if (string.IsNullOrWhiteSpace(disk.SerialNumber))
-            return false;
-
         using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("serial_number", out var sn))
-            return false;
+        var root = doc.RootElement;
 
-        var serial = sn.GetString()?.Trim();
-        return !string.IsNullOrEmpty(serial)
-            && serial.Equals(disk.SerialNumber.Trim(), StringComparison.OrdinalIgnoreCase);
+        string? candidateSerial = root.TryGetProperty("serial_number", out var sn) ? sn.GetString() : null;
+        if (!string.IsNullOrWhiteSpace(disk.SerialNumber) && !string.IsNullOrWhiteSpace(candidateSerial)
+            && NormalizeIdentifier(candidateSerial) == NormalizeIdentifier(disk.SerialNumber))
+        {
+            return true;
+        }
+
+        string? candidateModel = root.TryGetProperty("model_name", out var mn) ? mn.GetString() : null;
+        bool modelMatches = !string.IsNullOrWhiteSpace(candidateModel) && !string.IsNullOrWhiteSpace(disk.ModelName)
+            && IdentifiersOverlap(NormalizeIdentifier(candidateModel), NormalizeIdentifier(disk.ModelName));
+
+        long? candidateCapacity = root.TryGetProperty("user_capacity", out var uc) && uc.TryGetProperty("bytes", out var b)
+            ? b.GetInt64()
+            : null;
+        bool capacityMatches = candidateCapacity is { } cap && disk.CapacityBytes > 0
+            && CapacityRoughlyMatches(cap, disk.CapacityBytes);
+
+        return modelMatches && capacityMatches;
+    }
+
+    /// <summary>Harf/rakam olmayan her şeyi (boşluk, alt tire, tire, nokta) kaldırıp büyük
+    /// harfe çevirir — WMI/smartctl'in aynı kimliği farklı ayraç/biçimle döndürdüğü
+    /// durumlarda karşılaştırmayı mümkün kılar.</summary>
+    private static string NormalizeIdentifier(string value)
+        => new([.. value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant)]);
+
+    private static bool IdentifiersOverlap(string a, string b)
+        => a.Length > 0 && b.Length > 0 && (a.Contains(b, StringComparison.Ordinal) || b.Contains(a, StringComparison.Ordinal));
+
+    /// <summary>WMI ve smartctl'in aynı disk için bildirdiği kapasite birebir aynı olmayabilir
+    /// (gerçek makinede doğrulandı, bkz. MatchesDisk'in belgesi) — %1'lik bir tolerans içinde
+    /// eşleşme kabul edilir.</summary>
+    private static bool CapacityRoughlyMatches(long a, long b)
+    {
+        if (a <= 0 || b <= 0) return false;
+        double ratio = (double)Math.Min(a, b) / Math.Max(a, b);
+        return ratio >= 0.99;
     }
 
     // ---- Süreç çalıştırma ----
