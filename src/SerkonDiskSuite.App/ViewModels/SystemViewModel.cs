@@ -25,11 +25,13 @@ public partial class SystemViewModel : ObservableObject, IDisposable
 
     private readonly ISystemInfoProvider _systemInfoProvider;
     private readonly IHardwareMonitorProvider _hardwareMonitorProvider;
+    private readonly IHardwareTrendStore _trendStore;
     private readonly ObservableCollection<DateTimePoint> _cpuLoadPoints = [];
     private readonly ObservableCollection<DateTimePoint> _cpuTemperaturePoints = [];
 
     private CancellationTokenSource? _monitorCts;
     private bool _isPageActive;
+    private bool _historyLoaded;
 
     [ObservableProperty] private SystemSummary? _summary;
     [ObservableProperty] private HardwareSnapshot? _hardware;
@@ -86,10 +88,14 @@ public partial class SystemViewModel : ObservableObject, IDisposable
         },
     ];
 
-    public SystemViewModel(ISystemInfoProvider systemInfoProvider, IHardwareMonitorProvider hardwareMonitorProvider)
+    public SystemViewModel(
+        ISystemInfoProvider systemInfoProvider,
+        IHardwareMonitorProvider hardwareMonitorProvider,
+        IHardwareTrendStore trendStore)
     {
         _systemInfoProvider = systemInfoProvider;
         _hardwareMonitorProvider = hardwareMonitorProvider;
+        _trendStore = trendStore;
 
         CpuSeries =
         [
@@ -141,7 +147,59 @@ public partial class SystemViewModel : ObservableObject, IDisposable
         }
 
         _monitorCts = new CancellationTokenSource();
-        _ = MonitorLoopAsync(_monitorCts.Token);
+        var ct = _monitorCts.Token;
+        _ = _historyLoaded ? MonitorLoopAsync(ct) : LoadHistoryThenMonitorAsync(ct);
+    }
+
+    /// <summary>Daha önce kaydedilmiş CPU trend geçmişini (yalnızca canlı grafik penceresine
+    /// düşen kısmı) grafiğe önceden doldurur, ardından izleme döngüsünü başlatır —
+    /// HealthViewModel'in disk sıcaklık geçmişini yüklemesiyle aynı desen. Yalnızca ilk
+    /// başlatmada çalışır (sayfadan çıkıp geri dönmek geçmişi tekrar yüklemez).</summary>
+    private async Task LoadHistoryThenMonitorAsync(CancellationToken ct)
+    {
+        _historyLoaded = true;
+        var cutoff = DateTimeOffset.Now - TimeSpan.FromMinutes(WindowMinutes);
+        IReadOnlyList<HardwareTrendPoint> history;
+        try
+        {
+            history = await _trendStore.LoadAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch
+        {
+            history = [];
+        }
+
+        lock (ChartSyncObject)
+        {
+            foreach (var point in history)
+            {
+                if (point.Timestamp < cutoff)
+                {
+                    continue;
+                }
+
+                if (point.CpuLoadPercent is { } load)
+                {
+                    _cpuLoadPoints.Add(new DateTimePoint(point.Timestamp.LocalDateTime, load));
+                }
+
+                if (point.CpuTemperatureCelsius is { } temp)
+                {
+                    _cpuTemperaturePoints.Add(new DateTimePoint(point.Timestamp.LocalDateTime, temp));
+                }
+            }
+
+            if (_cpuLoadPoints.Count >= 2 || _cpuTemperaturePoints.Count >= 2)
+            {
+                HasCpuChartData = true;
+            }
+        }
+
+        await MonitorLoopAsync(ct);
     }
 
     private void StopMonitoring()
@@ -185,6 +243,19 @@ public partial class SystemViewModel : ObservableObject, IDisposable
                         HasCpuChartData = true;
                     }
                 }
+
+                if (snapshot.CpuTemperatureCelsius is not null || snapshot.CpuLoadPercent is not null
+                    || snapshot.GpuTemperatureCelsius is not null || snapshot.GpuLoadPercent is not null)
+                {
+                    await _trendStore.AppendAsync(
+                        new HardwareTrendPoint(
+                            snapshot.Timestamp,
+                            snapshot.CpuTemperatureCelsius,
+                            snapshot.CpuLoadPercent,
+                            snapshot.GpuTemperatureCelsius,
+                            snapshot.GpuLoadPercent),
+                        ct);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -192,7 +263,7 @@ public partial class SystemViewModel : ObservableObject, IDisposable
             }
             catch
             {
-                // Tek bir okuma hatası izlemeyi durdurmasın; bir sonraki periyotta tekrar denenir.
+                // Tek bir okuma/yazma hatası izlemeyi durdurmasın; bir sonraki periyotta tekrar denenir.
             }
 
             try

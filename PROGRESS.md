@@ -1958,6 +1958,73 @@ crash log'u doğrulanabildi):
 `src/SerkonDiskSuite.App/Views/Pages/SystemPage.xaml.cs`,
 `src/SerkonDiskSuite.App/Converters/Converters.cs`.
 
+### 45. ADIM 5 — CPU/GPU trend loglama + rapor entegrasyonu (TAMAMLANDI — 2026-08-10)
+
+Bu madde görevde opsiyonel olarak işaretlenmişti; kullanıcıyla konuşulup
+her iki alt maddenin de (11: trend loglama, 12: rapor entegrasyonu)
+yapılması onaylandı.
+
+**11 — CPU/GPU trend loglama:** `Core/Models/HardwareTrendPoint.cs` (yeni,
+Timestamp + Cpu/Gpu Temperature/Load — disk anahtarına gerek yok, makinede
+tek CPU/GPU var) + `Core/Interfaces/Providers.cs`'e `IHardwareTrendStore`
+eklendi. `Infrastructure/Trend/JsonHardwareTrendStore.cs` (yeni):
+`JsonSmartTrendStore`'un aynı süreçler-arası güvenli `FileShare.None` +
+yeniden deneme desenini (madde 40 A2'nin "lost update" düzeltmesi)
+kullanıyor, ama tek dosyada (`%LOCALAPPDATA%\SerkonDiskSuite\trend\
+hardware.json`) — disklerin aksine anahtar gerekmiyor. `SystemViewModel`,
+`HealthViewModel`'in geçmiş yükleme desenini izleyerek izleme ilk
+başladığında geçmişi (canlı grafiğin 15 dakikalık penceresine düşen
+kısmını) önceden dolduruyor (`LoadHistoryThenMonitorAsync`, yalnızca ilk
+seferde — `_historyLoaded` bayrağı), her periyotta okunan anlık durumu
+(en az bir alan doluyken) depoya ekliyor.
+
+**12 — Rapor entegrasyonu:** `DiskReportBuilder.BuildPlainText`/`BuildJson`
+yeni bir opsiyonel `HardwareSnapshot? hardware = null` parametresi aldı
+(geriye uyumlu — var olan çağrılar/testler değişmeden derleniyor). Düz
+metin raporunda `hardware` doluysa yeni "Sistem Anlık Durumu (CPU/GPU/RAM)"
+bölümü ekleniyor (CPU yük/sıcaklık her zaman, GPU bulunmuşsa adı+yük+
+sıcaklık+VRAM, RAM used/total). JSON raporunda `Hardware` alanı eklendi
+(null olabilir). `MainViewModel.ExportReport`/`CopyReportToClipboard`
+artık `System.Hardware`'i (o anki `SystemViewModel` anlık okuması) bu
+metotlara geçiriyor — Sistem sekmesi hiç açılmamışsa `Hardware` hâlâ
+`null` olur, rapor bu bölümü atlar (tahmini değer üretilmez).
+
+**Doğrulama:** Yeni `JsonHardwareTrendStoreTests` (3 test —
+`JsonSmartTrendStoreTests`'in aynı süreçler-arası eşzamanlılık senaryosu
+dahil). `dotnet build`: 0 hata/0 uyarı. `dotnet test`: **79/79 başarılı**
+(76 eski + 3 yeni). Gerçek uygulama yönetici olarak başlatılıp launch
+öncesi/sonrası log karşılaştırması yapıldı (aşağıya bakın).
+
+**Görsel doğrulama kullanıcı tarafından elle yapılmalı:**
+- Birkaç dakika/saat sonra `%LOCALAPPDATA%\SerkonDiskSuite\trend\
+  hardware.json` dosyasının oluştuğu ve büyüdüğü (yalnızca Sistem
+  sekmesi açıkken — madde A2'nin disk trendinde olduğu gibi).
+- Uygulamayı kapatıp yeniden açıp Sistem sekmesine girdiğinizde CPU
+  grafiğinin önceki oturumdan kalan (son 15 dakikaya düşen) noktalarla
+  başladığı.
+- "Rapor Dışa Aktar"/"Panoya Kopyala" ile alınan raporda yeni "Sistem
+  Anlık Durumu" bölümünün gerçek CPU/GPU/RAM değerleriyle göründüğü.
+
+**Değişiklik:**
+`src/SerkonDiskSuite.Core/Models/HardwareTrendPoint.cs` (yeni),
+`src/SerkonDiskSuite.Core/Interfaces/Providers.cs`,
+`src/SerkonDiskSuite.Infrastructure/Trend/JsonHardwareTrendStore.cs` (yeni),
+`src/SerkonDiskSuite.App/App.xaml.cs`,
+`src/SerkonDiskSuite.App/ViewModels/SystemViewModel.cs`,
+`src/SerkonDiskSuite.Core/Reporting/DiskReportBuilder.cs`,
+`src/SerkonDiskSuite.App/ViewModels/MainViewModel.cs`,
+`tests/SerkonDiskSuite.Tests/JsonHardwareTrendStoreTests.cs` (yeni).
+
+## CPU/GPU/RAM donanım izleme turu tamamlandı (ADIM 1-5)
+
+Bu turda CLAUDE.md'nin istediği 5 adımın tamamı bitti: LibreHardwareMonitorLib
+kurulumu + gerçek makinede sensör keşfi, Core modelleri/arayüzü, gerçek
+provider implementasyonu, Sistem sekmesinde canlı CPU/GPU/RAM izleme
+(LiveCharts2 grafiği + rozetler), CPU/GPU trend loglama + rapor
+entegrasyonu. Anakart sensörleri (fan/voltaj) ve CPU/anakart sıcaklığının
+yönetici hakkıyla gerçekten dolduğu bu ajan oturumunda görsel olarak
+doğrulanamadı — bkz. aşağıdaki manuel kontrol listesi.
+
 ## Devam eden iş
 
 - Yok. Disk format/partition özelliğine bu turda da kasıtlı olarak

@@ -95,6 +95,7 @@ public partial class App : Application
         services.AddSingleton<ISystemInfoProvider, WmiSystemInfoProvider>();
         services.AddSingleton<IHardwareMonitorProvider, LibreHardwareMonitorProvider>();
         services.AddSingleton<ISmartTrendStore>(_ => new JsonSmartTrendStore());
+        services.AddSingleton<IHardwareTrendStore>(_ => new JsonHardwareTrendStore());
 
         // ViewModel'ler
         services.AddSingleton<HealthViewModel>();

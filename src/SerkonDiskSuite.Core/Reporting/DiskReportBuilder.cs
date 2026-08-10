@@ -13,7 +13,11 @@ public static class DiskReportBuilder
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    public static string BuildPlainText(DiskInfo disk, SmartHealth? health, IReadOnlyList<BenchmarkResult> benchmarkResults)
+    public static string BuildPlainText(
+        DiskInfo disk,
+        SmartHealth? health,
+        IReadOnlyList<BenchmarkResult> benchmarkResults,
+        HardwareSnapshot? hardware = null)
     {
         var sb = new StringBuilder();
         const string separator = "----------------------------------------------------------";
@@ -79,11 +83,32 @@ public static class DiskReportBuilder
             sb.AppendLine();
         }
 
+        if (hardware is not null)
+        {
+            sb.AppendLine("Sistem Anlık Durumu (CPU/GPU/RAM)");
+            sb.AppendLine(separator);
+            sb.AppendLine($"CPU Yük              : {(hardware.CpuLoadPercent is { } cl ? DisplayFormatting.FormatNumber(cl) : "-")} %");
+            sb.AppendLine($"CPU Sıcaklık         : {(hardware.CpuTemperatureCelsius is { } ct ? DisplayFormatting.FormatNumber(ct) : "-")} °C");
+            if (hardware.GpuName is not null)
+            {
+                sb.AppendLine($"GPU                  : {hardware.GpuName}");
+                sb.AppendLine($"GPU Yük              : {(hardware.GpuLoadPercent is { } gl ? DisplayFormatting.FormatNumber(gl) : "-")} %");
+                sb.AppendLine($"GPU Sıcaklık         : {(hardware.GpuTemperatureCelsius is { } gt ? DisplayFormatting.FormatNumber(gt) : "-")} °C");
+                sb.AppendLine($"GPU Bellek Kullanımı : {(hardware.GpuMemoryUsedBytes is { } gm ? DisplayFormatting.FormatBytes(gm) : "-")}");
+            }
+            sb.AppendLine($"RAM Kullanımı        : {(hardware.RamUsedBytes is { } ru ? DisplayFormatting.FormatBytes(ru) : "-")} / {(hardware.RamTotalBytes is { } rt ? DisplayFormatting.FormatBytes(rt) : "-")}");
+            sb.AppendLine();
+        }
+
         sb.AppendLine($"Rapor oluşturulma zamanı: {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}");
         return sb.ToString();
     }
 
-    public static string BuildJson(DiskInfo disk, SmartHealth? health, IReadOnlyList<BenchmarkResult> benchmarkResults)
+    public static string BuildJson(
+        DiskInfo disk,
+        SmartHealth? health,
+        IReadOnlyList<BenchmarkResult> benchmarkResults,
+        HardwareSnapshot? hardware = null)
     {
         var report = new
         {
@@ -91,6 +116,7 @@ public static class DiskReportBuilder
             Disk = disk,
             Health = health,
             BenchmarkResults = benchmarkResults,
+            Hardware = hardware,
         };
         return JsonSerializer.Serialize(report, JsonOptions);
     }

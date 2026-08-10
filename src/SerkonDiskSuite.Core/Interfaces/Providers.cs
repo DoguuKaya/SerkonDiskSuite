@@ -58,6 +58,16 @@ public interface IHardwareMonitorProvider
     Task<HardwareSnapshot> GetSnapshotAsync(CancellationToken ct = default);
 }
 
+/// <summary>CPU/GPU okumalarının zaman içindeki trendini kalıcı olarak saklar (ör. JSON dosyası).
+/// <see cref="ISmartTrendStore"/>'un tek farkı: diskin aksine makinede tek bir CPU/GPU
+/// olduğundan disk anahtarı gerekmez.</summary>
+public interface IHardwareTrendStore
+{
+    Task<IReadOnlyList<HardwareTrendPoint>> LoadAsync(CancellationToken ct = default);
+
+    Task AppendAsync(HardwareTrendPoint point, CancellationToken ct = default);
+}
+
 /// <summary>Sistem özeti modeli.</summary>
 public sealed class SystemSummary
 {
