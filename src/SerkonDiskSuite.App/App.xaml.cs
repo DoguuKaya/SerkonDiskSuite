@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
@@ -42,10 +43,30 @@ public partial class App : Application
         window.Show();
     }
 
-    /// <summary>smartctl.exe GPL lisanslı olduğundan yükleyici (installer) onu paketlemiyor —
-    /// kullanıcı smartmontools'u kendi indirmeli (bkz. README). Eksikse SMART özellikleri
-    /// sessizce devre dışı kalır (ConfigureServices zaten null geçiyor) ama kullanıcı NEDENİNİ
-    /// hiç bilmeyebilir; bu yüzden açılışta bir kerelik bilgilendirici bir uyarı gösteriliyor.</summary>
+    /// <summary>
+    /// SORUN 3 (v1.0.0 gerçek kullanıcı raporu): eski uyarı metni çok teknikti
+    /// ("smartctl.exe bulunamadı") ve kullanıcılar bunu "program bozuk" sanıp ne
+    /// yapacaklarını bilemedi. smartctl.exe GPL-2.0 lisanslı olduğundan yükleyici
+    /// (installer) onu paketlemiyor — bu turda GPL-2.0'ın "mere aggregation" maddesi
+    /// (gnu.org/licenses/gpl-2.0-faq: ayrı, birbirine bağlanmamış programların aynı
+    /// dağıtım ortamında bulunması lisansı etkilemez) araştırıldı ve smartctl.exe'yi
+    /// AYRI bir süreç olarak çalıştırdığımız için (linklemiyoruz) paketlemek muhtemelen
+    /// yasal olarak mümkün — ANCAK bu, GPL lisans metnini kurulum paketine dahil etmeyi
+    /// ve tam kaynak/sürüm izlenebilirliğini gerektiriyor (bu turda henüz yapılmadı).
+    /// Otomatik indirme de değerlendirildi: smartmontools resmi GitHub Releases'inde
+    /// (github.com/smartmontools/smartmontools/releases) yalnızca bir NSIS kurulum
+    /// programı (.win32-setup.exe) var, taşınabilir/tek-exe bir zip YOK — bu yüzden
+    /// otomatik indirip sessizce kurmak, üçüncü taraf bir kurulum programını sessiz
+    /// bayraklarla (/S /D=) çalıştırmayı gerektirir; bu turda bu yaklaşımın kırılganlığı
+    /// (sürüm değişince bayraklar/davranış değişebilir, AV/SmartScreen uyarısı riski)
+    /// nedeniyle ERTELENDİ. Bu turda uygulanan: kullanıcıyı resmi indirme sayfasına
+    /// TEK TIKLA yönlendiren, "bu bir eklenti, bozuk değil" hissini veren daha anlaşılır
+    /// bir uyarı. WPF-UI'nin özel butonlu MessageBox'ı (Content=Window alt sınıfı)
+    /// değerlendirildi ama gerçek MainWindow'dan ÖNCE gösterildiği için
+    /// Application.MainWindow/ShutdownMode etkileşimi riski taşıyor ve bu ajan
+    /// oturumunda interaktif UI testi yapılamadığından, zaten kanıtlanmış/güvenli olan
+    /// standart System.Windows.MessageBox (YesNo) tercih edildi.
+    /// </summary>
     private static void WarnIfSmartctlMissing()
     {
         string smartctlPath = Path.Combine(AppContext.BaseDirectory, "tools", "smartctl.exe");
@@ -54,15 +75,41 @@ public partial class App : Application
             return;
         }
 
-        MessageBox.Show(
-            "smartctl.exe bulunamadı (tools\\smartctl.exe). SMART disk sağlığı özellikleri " +
-            "bu çalıştırmada devre dışı olacak.\n\n" +
-            "smartmontools'u https://www.smartmontools.org/ adresinden indirip smartctl.exe'yi " +
-            "(ve DLL'lerini) uygulamanın yanındaki tools\\ klasörüne kopyalayın. Ayrıntı için " +
-            "README.md'ye bakın.",
-            "Serkon Disk Suite — smartctl bulunamadı",
-            MessageBoxButton.OK,
-            MessageBoxImage.Warning);
+        var result = MessageBox.Show(
+            "Serkon Disk Suite'in disk sağlığı (SMART) özelliğini kullanabilmesi için " +
+            "\"smartmontools\" adlı ücretsiz, açık kaynaklı bir eklentiye ihtiyacı var. " +
+            "Bu bir hata veya bozuk kurulum DEĞİL — lisans farkı nedeniyle eklenti " +
+            "uygulamanın kurulumuna dahil edilemiyor, ayrıca indirmeniz gerekiyor.\n\n" +
+            "Bu eklenti olmadan disk listesi ve benchmark özellikleri her zamanki gibi " +
+            "çalışır; yalnızca SMART sağlık verileri (sıcaklık, kalan ömür vb.) boş kalır.\n\n" +
+            "Şimdi indirme sayfasını açmak için EVET'e basın. Kurulum dosyasını " +
+            "çalıştırdıktan sonra smartctl.exe (ve yanındaki dosyaları) bu uygulamanın " +
+            "klasöründeki \"tools\" alt klasörüne kopyalamanız yeterli (ayrıntı: README.md).",
+            "Serkon Disk Suite — isteğe bağlı bir eklenti eksik",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Information);
+
+        if (result == MessageBoxResult.Yes)
+        {
+            OpenSmartctlDownloadPage();
+        }
+    }
+
+    private static void OpenSmartctlDownloadPage()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://github.com/smartmontools/smartmontools/releases/latest",
+                UseShellExecute = true,
+            });
+        }
+        catch
+        {
+            // Tarayıcı açılamazsa (ör. hiçbir varsayılan tarayıcı kayıtlı değilse) sessizce
+            // yut — kullanıcı README.md'deki adresi elle de ziyaret edebilir.
+        }
     }
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
