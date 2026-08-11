@@ -18,6 +18,25 @@ public sealed class LibreHardwareMonitorProvider : IHardwareMonitorProvider, IDi
     private readonly object _lock = new();
     private bool _disposed;
 
+    /// <summary>
+    /// SORUN 6 (v1.0.0 gerçek kullanıcı raporu, Windows 10 uyumluluğu araştırması):
+    /// <see cref="Computer.Open"/> WinRing0 çekirdek sürücüsünü yükler; bu sürücü
+    /// Windows Defender tarafından "HackTool:Win32/Winring0" olarak işaretlenip
+    /// karantinaya alınabiliyor (github.com/LibreHardwareMonitor/LibreHardwareMonitor
+    /// issue #1660/#1839'da belgelenen, hâlâ güncel bir sorun) — bu, özellikle
+    /// varsayılan Windows Defender ayarlarıyla çalışan, daha az özelleştirilmiş
+    /// makinelerde (birçok Windows 10 kurulumunda) beklenenden daha sık tetiklenebilir.
+    /// Bu constructor eskiden `_computer.Open()`'ı hiçbir try/catch OLMADAN çağırıyordu;
+    /// bu çağrı DI graph'ının parçası olarak `App.xaml.cs`'teki
+    /// `GetRequiredService&lt;MainWindow&gt;()` içinden, `MainWindow.Show()`'dan ÖNCE
+    /// senkron çalıştığından, sürücü engellenirse/yüklenemezse fırlayan istisna
+    /// TÜM UYGULAMAYI pencere hiç görünmeden açılışta çökertebiliyordu — sınıfın geri
+    /// kalanının felsefesiyle ("Bulunamayan sensörler için null döner, tahmini değer
+    /// üretilmez") tutarsızdı. Artık `Open()` başarısız olursa donanım izleme sessizce
+    /// devre dışı kalır (tüm alanlar null döner), uygulama çökmez.
+    /// </summary>
+    private readonly bool _available;
+
     public LibreHardwareMonitorProvider()
     {
         _computer = new Computer
@@ -26,7 +45,15 @@ public sealed class LibreHardwareMonitorProvider : IHardwareMonitorProvider, IDi
             IsGpuEnabled = true,
             IsMemoryEnabled = true,
         };
-        _computer.Open();
+        try
+        {
+            _computer.Open();
+            _available = true;
+        }
+        catch
+        {
+            _available = false;
+        }
     }
 
     public Task<HardwareSnapshot> GetSnapshotAsync(CancellationToken ct = default)
@@ -35,6 +62,9 @@ public sealed class LibreHardwareMonitorProvider : IHardwareMonitorProvider, IDi
             lock (_lock)
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
+
+                if (!_available)
+                    return new HardwareSnapshot();
 
                 _computer.Accept(_updateVisitor);
 
@@ -132,7 +162,8 @@ public sealed class LibreHardwareMonitorProvider : IHardwareMonitorProvider, IDi
             }
 
             _disposed = true;
-            _computer.Close();
+            if (_available)
+                _computer.Close();
         }
     }
 

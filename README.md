@@ -105,6 +105,54 @@ App (WPF/MVVM)  ->  Infrastructure (smartctl, WMI, benchmark)  ->  Core (domain,
   Uygulama VBS'in etkin olduğunu tespit edebilirse bunu açıklayan bir mesaj gösterir.
 - Disk format/partition işlemleri ve firmware güncelleme desteklenmez (kapsam dışı, bkz. `CLAUDE.md`).
 
+## Bilinen sorunlar / Sık sorulan sorular
+
+**"smartctl bulunamadı" uyarısı çıkıyor, bu bir hata mı?**
+Hayır. `smartctl.exe` (smartmontools) GPL lisanslı olduğu için uygulamanın
+kurulumuna dahil edilemiyor — bkz. [SMART aracı kurulumu](#smart-aracı-kurulumu).
+Uyarı penceresindeki "Evet"e basarsanız resmi indirme sayfası tarayıcınızda açılır.
+Bu eklenti olmadan disk listesi ve benchmark özellikleri normal çalışır; yalnızca
+SMART sağlık verileri (sıcaklık, kalan ömür vb.) boş kalır.
+
+**Uygulama/kısayol açılırken Windows bir UAC (Kullanıcı Hesabı Denetimi) onayı istiyor, normal mi?**
+Evet, bu normaldir ve beklenen bir davranıştır. SMART/düşük seviye disk erişimi
+yönetici hakkı gerektirdiğinden uygulama `requireAdministrator` manifestiyle
+dağıtılır; masaüstü/Başlat Menüsü kısayollarından veya kurulum sonrası
+"Programı çalıştır" seçeneğinden her açılışta Windows bunu onaylamanızı ister.
+
+**Bazı disklerde SMART verisi görünmüyor / boş kalıyor, neden?**
+Birkaç olası neden var: (1) `smartctl.exe` hiç yok — yukarıdaki soruya bakın;
+(2) disk smartctl tarafından tanınmıyor/desteklenmiyor; (3) yönetici hakkı
+olmadan çalıştırılmış olabilirsiniz. Bu durumlarda kartlarda "Veri Okunamadı" /
+"-" gösterilir (asla yanıltıcı bir "İyi" durumu iddia edilmez). Çoklu diskli
+makinelerde önceden bir eşleştirme hatası (WMI ile smartctl'in aynı diski farklı
+seri numarası biçimleriyle raporlaması) bazı disklerde veri gelmemesine yol
+açıyordu; bu düzeltildi (bkz. `PROGRESS.md` SORUN 1) — hâlâ yaşıyorsanız lütfen
+bir issue açın.
+
+**Ana/boot diskim listede hiç görünmüyor.**
+Bazı NVMe/RAID/Intel RST yapılandırmalarında Windows'un `Win32_DiskDrive` WMI
+sınıfı bir diski atlayabiliyordu; uygulama artık ikincil bir kaynaktan
+(Depolama Yönetimi API'si) eksik kalan diskleri tamamlıyor (bkz. `PROGRESS.md`
+SORUN 2). Hâlâ yaşıyorsanız lütfen bir issue açın.
+
+**Uygulama açılışta hata veriyor / hiç açılmıyor.**
+İki bilinen olası neden var:
+- **Visual C++ Redistributable eksik:** Sıcaklık grafiği kütüphanesi (SkiaSharp)
+  Windows'ta [Visual C++ Redistributable (x64)](https://learn.microsoft.com/tr-tr/cpp/windows/latest-supported-vc-redist)
+  gerektirir. Özellikle temiz/eski Windows 10 kurulumlarında bu eksik olabilir.
+- **Windows Defender donanım izleme sürücüsünü karantinaya alıyor:** CPU/GPU/RAM
+  izleme (LibreHardwareMonitor) kullandığı WinRing0 sürücüsü bazı Defender
+  sürümlerince "HackTool:Win32/Winring0" olarak işaretlenip karantinaya
+  alınabiliyor ([bilinen bir üst akış sorunu](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/issues/1660)).
+  Uygulama bu durumda artık çökmüyor (donanım izleme sessizce devre dışı kalır)
+  ama karantina öncesi sürümlerde açılış sorununa yol açmış olabilir.
+
+  Her iki durumda da `%LOCALAPPDATA%\SerkonDiskSuite\logs\` klasöründe bir
+  `crash-*.log` dosyası oluşup oluşmadığını kontrol edin — oluştuysa lütfen bu
+  dosyanın içeriğiyle birlikte bir issue açın, kök nedeni kesin olarak
+  belirlememize yardımcı olur.
+
 ## Uyarı
 Disk yönetimi/benchmark işlemleri diske yazma yapar. Benchmark, hedef sürücüde geçici
 bir dosya oluşturup siler. Önemli verilerinizin yedeğini almanız önerilir.
