@@ -51,8 +51,14 @@ public sealed class SmartctlSmartProvider : ISmartProvider
                 $"smartctl diski açamadı ({disk.DevicePath}). Yönetici olarak çalıştırdığınızdan emin olun. {stderr}");
 
         using var doc = JsonDocument.Parse(stdout);
-        var root = doc.RootElement;
+        return ParseHealth(disk.DevicePath, doc.RootElement);
+    }
 
+    /// <summary>smartctl'in "-a --json=c" çıktısından bir SmartHealth kurar. I/O içermez, bu
+    /// yüzden gerçek donanım/smartctl gerektirmeden sabit JSON örnekleriyle test edilebilir
+    /// (bkz. ParseSelfTestStatus ile aynı desen).</summary>
+    public static SmartHealth ParseHealth(string devicePath, JsonElement root)
+    {
         int? temperature = TryGetTemperature(root);
         int? remainingLife = TryGetRemainingLife(root);
         bool criticalWarning = TryGetCriticalWarning(root);
@@ -61,7 +67,7 @@ public sealed class SmartctlSmartProvider : ISmartProvider
 
         return new SmartHealth
         {
-            DevicePath = disk.DevicePath,
+            DevicePath = devicePath,
             OverallStatus = status,
             TemperatureCelsius = temperature,
             RemainingLifePercent = remainingLife,
@@ -69,8 +75,8 @@ public sealed class SmartctlSmartProvider : ISmartProvider
             PowerCycleCount = TryGetLongDirect(root, "power_cycle_count"),
             UnsafeShutdowns = TryGetNvmeLong(root, "unsafe_shutdowns"),
             AvailableSparePercent = TryGetNvmeInt(root, "available_spare"),
-            TotalBytesRead = TryGetNvmeDataUnits(root, "data_units_read"),
-            TotalBytesWritten = TryGetNvmeDataUnits(root, "data_units_written"),
+            TotalBytesRead = TryGetNvmeDataUnits(root, "data_units_read") ?? TryGetAtaBytes(root, AtaBytesReadAttributes),
+            TotalBytesWritten = TryGetNvmeDataUnits(root, "data_units_written") ?? TryGetAtaBytes(root, AtaBytesWrittenAttributes),
             Attributes = ExtractAttributes(root),
             CriticalWarningFlags = ExtractCriticalWarningFlags(root),
             Timestamp = DateTimeOffset.Now
@@ -187,7 +193,151 @@ public sealed class SmartctlSmartProvider : ISmartProvider
         {
             return HealthEvaluator.PercentageUsedToRemainingLife(used.GetInt32());
         }
+        return TryGetAtaRemainingLife(root);
+    }
+
+    /// <summary>
+    /// ATA/SATA'da NVMe'nin percentage_used'ının doğrudan bir karşılığı yok — üreticiye özel
+    /// bir öznitelik ID'si kullanılır (ID SanDisk'te 201, Intel'de 202/231, Samsung'da 173/177
+    /// gibi üreticiden üreticiye değişir). smartctl kendi "drivedb.h" veritabanından bu ID'yi
+    /// modele göre çözüp JSON'daki "name" alanına yazdığı için, ID'ye göre değil bu isme göre
+    /// eşleştirme yapılıyor — bu, sabit bir ID varsaymaktan çok daha güvenilir.
+    ///
+    /// İsim listesi smartmontools'un gerçek "drivedb.h" kaynağından (github.com/smartmontools/
+    /// smartmontools) doğrulandı: "SanDisk SSD PLUS (120|240|480|[12]000) ?GB" deseniyle eşleşen
+    /// "Marvell based SanDisk SSDs" ailesi (bu SORUN'u bildiren kullanıcının tam disk modeli)
+    /// ID 201'i "Lifetime_Remaining%" olarak adlandırıyor ve ham (raw) değeri doğrudan yüzde.
+    /// Diğer adlar (Percent_Lifetime_Remain, SSD_Life_Left*, Wear_Leveling_Count) da aynı
+    /// dosyada birçok başka aile için görülüyor; hepsinde normalize edilmiş "value" alanı
+    /// (ham değil) 100 (yeni) -> eşik (aşınmış) yönünde azalıyor, standart SMART kuralı.
+    ///
+    /// Bilinçli olarak DIŞLANAN isim: "Media_Wearout_Indicator". "WD Blue / Red / Green SSDs"
+    /// ailesinde bu öznitelik "hex48" biçiminde paketlenmiş ham veri taşıyor ve gerçek bir
+    /// kullanıcı raporunda (github.com/v-zhuravlev/zbx-smartctl issue #148) normalize değerinin
+    /// "kalan" değil "kullanılan" yüzdeyi gösterdiği (ters anlam) belgelendi — yanlış ama
+    /// kendinden emin bir sağlık durumu göstermek, "-" göstermekten daha kötü.
+    /// </summary>
+    private static readonly string[] AtaRemainingLifeAttributeNames =
+    [
+        "Percent_Lifetime_Remain",
+        "Lifetime_Remaining", // "Lifetime_Remaining%" dahil (SanDisk SSD PLUS)
+        "SSD_Life_Left",      // "SSD_Life_Left_Perc" dahil
+        "Wear_Leveling_Count"
+    ];
+
+    private static int? TryGetAtaRemainingLife(JsonElement root)
+    {
+        if (!TryGetAtaAttributeTable(root, out var table))
+            return null;
+
+        // Aday listesi bir öncelik sırasıdır (ör. Percent_Lifetime_Remain, Wear_Leveling_Count'tan
+        // önce denenir); bu yüzden dış döngü tablo değil aday listesi olmalı — aksi halde "kazanan"
+        // tablodaki rastgele sıralamaya (genelde ID artan) bağlı kalırdı.
+        foreach (var candidate in AtaRemainingLifeAttributeNames)
+        {
+            foreach (var attr in table.EnumerateArray())
+            {
+                string? name = attr.TryGetProperty("name", out var n) ? n.GetString() : null;
+                if (name is null || !name.StartsWith(candidate, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (attr.TryGetProperty("value", out var v) && v.TryGetInt32(out int normalized))
+                {
+                    // Normalize edilmiş SMART değeri her üreticide sıkı sıkıya 0-100 aralığında
+                    // olmayabilir (bazı firmware'lerde 0-253); UI'ya "%153 kalan ömür" gibi anlamsız
+                    // bir değer sızdırmamak için NVMe yolundakiyle aynı şekilde kırpılıyor.
+                    return Math.Clamp(normalized, 0, 100);
+                }
+            }
+        }
+
         return null;
+    }
+
+    /// <summary>
+    /// ATA "Total Bytes Written/Read" öznitelikleri de ID'ye göre değil isme göre eşleştirilir
+    /// (yukarıdaki TryGetAtaRemainingLife ile aynı gerekçe) — ayrıca ham değerin BİRİMİ isme göre
+    /// değişiyor, bu yüzden her isim kendi bayt çarpanıyla eşleştiriliyor. Tüm eşlemeler
+    /// smartmontools drivedb.h kaynağından doğrulandı:
+    /// - "Total_LBAs_Written"/"Total_LBAs_Read": ham değer 512 baytlık LBA sektör sayısı
+    ///   (birçok üretici genelinde en yaygın kural).
+    /// - "Host_Writes_32MiB"/"Host_Reads_32MiB": ham değer 32 MiB'lık birim (Samsung/Toshiba
+    ///   ailelerinde yaygın).
+    /// - "Host_Writes_GiB"/"Host_Reads_GiB", "Lifetime_Writes_GiB"/"Lifetime_Reads_GiB",
+    ///   "Total_Writes_GiB"/"Total_Reads_GiB": ham değer doğrudan GiB. Bu SORUN'u bildiren
+    ///   kullanıcının tam disk ailesinde (SanDisk SSD PLUS, "Marvell based SanDisk SSDs")
+    ///   ID 241/242 "Total_Writes_GiB"/"Total_Reads_GiB" olarak adlandırılıyor ve ham değer
+    ///   doğrudan GiB (drivedb.h'da doğrulandı).
+    /// </summary>
+    private static readonly (string Name, long BytesPerUnit)[] AtaBytesWrittenAttributes =
+    [
+        ("Total_LBAs_Written", 512L),
+        ("Host_Writes_32MiB", 32L * 1024 * 1024),
+        ("Host_Writes_GiB", 1024L * 1024 * 1024),
+        ("Lifetime_Writes_GiB", 1024L * 1024 * 1024),
+        ("Total_Writes_GiB", 1024L * 1024 * 1024)
+    ];
+
+    private static readonly (string Name, long BytesPerUnit)[] AtaBytesReadAttributes =
+    [
+        ("Total_LBAs_Read", 512L),
+        ("Host_Reads_32MiB", 32L * 1024 * 1024),
+        ("Host_Reads_GiB", 1024L * 1024 * 1024),
+        ("Lifetime_Reads_GiB", 1024L * 1024 * 1024),
+        ("Total_Reads_GiB", 1024L * 1024 * 1024)
+    ];
+
+    private static long? TryGetAtaBytes(JsonElement root, (string Name, long BytesPerUnit)[] candidates)
+    {
+        if (!TryGetAtaAttributeTable(root, out var table))
+            return null;
+
+        // Aday listesi öncelik sırasıdır (aşağıda TryGetAtaRemainingLife'daki aynı gerekçe) —
+        // dış döngü aday listesi olmalı, tablo sıralaması değil.
+        foreach (var (candidateName, bytesPerUnit) in candidates)
+        {
+            foreach (var attr in table.EnumerateArray())
+            {
+                string? name = attr.TryGetProperty("name", out var n) ? n.GetString() : null;
+                if (name is null || !name.Equals(candidateName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (!attr.TryGetProperty("raw", out var raw)
+                    || !raw.TryGetProperty("value", out var rv)
+                    || !rv.TryGetInt64(out long units)
+                    || units < 0)
+                {
+                    continue;
+                }
+
+                // Bozuk/arızalı bir diskin sahte devasa ham değeri sessizce taşıp (overflow)
+                // anlamsız (ör. negatif) bir bayt sayısı üretmesin — böyle bir durumda "-"
+                // göstermek yanlış bir sayı göstermekten daha güvenli.
+                try
+                {
+                    return checked(units * bytesPerUnit);
+                }
+                catch (OverflowException)
+                {
+                    continue;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryGetAtaAttributeTable(JsonElement root, out JsonElement table)
+    {
+        if (root.TryGetProperty("ata_smart_attributes", out var ata)
+            && ata.TryGetProperty("table", out table)
+            && table.ValueKind == JsonValueKind.Array)
+        {
+            return true;
+        }
+
+        table = default;
+        return false;
     }
 
     private static bool TryGetCriticalWarning(JsonElement root)
