@@ -57,4 +57,15 @@ Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+; SORUN 4 (v1.0.0 gerçek kullanıcı raporu): kurulum sonrası "Programı çalıştır"
+; kutusuyla uygulama açılırken bazı kullanıcılarda "CreateProcess tamamlanamadı:
+; kod 740 (ERROR_ELEVATION_REQUIRED)" hatası alınıyordu. app.manifest
+; requireAdministrator istediğinden, shellexec OLMADAN varsayılan CreateProcess
+; çağrısı — kurulum süreci kendisi zaten yönetici olarak çalışsa bile bazı
+; ortamlarda (ör. kurulumun beklenmeyen bir şekilde yükseltilmemiş bir token'la
+; çalıştığı durumlar) elevation isteğini düzgün tetikleyemiyor. shellexec,
+; Explorer'da çift tıklamış gibi ShellExecute üzerinden başlatır — bu, UAC
+; onay istemini (gerekiyorsa) her koşulda doğru tetikleyen, resmi Inno Setup
+; dokümantasyonunun (jrsoftware.org/ishelp/topic_runsection.htm) bu senaryo
+; için önerdiği yöntemdir.
+Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent shellexec
