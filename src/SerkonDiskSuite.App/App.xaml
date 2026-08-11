@@ -13,6 +13,8 @@
 
             <!-- Uygulama genelinde (tüm pencere/sayfalarda) kullanılan converter'lar -->
             <conv:HealthToBrushConverter x:Key="HealthToBrush" />
+            <conv:HealthStatusToStringConverter x:Key="HealthStatusToString" />
+            <conv:NullableIntToStringConverter x:Key="NullableIntToString" />
             <conv:BytesToStringConverter x:Key="BytesToString" />
             <conv:SmartAttributeNameConverter x:Key="SmartAttributeName" />
             <conv:SmartAttributeValueConverter x:Key="SmartAttributeValue" />

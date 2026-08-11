@@ -25,6 +25,14 @@ public static class HealthEvaluator
         if (hasCriticalWarning)
             return HealthStatus.Bad;
 
+        // SORUN 5 (v1.0.0 gerçek kullanıcı raporu): sıcaklık VE kalan ömür ikisi de
+        // okunamadıysa (smartctl bu diski tanımadı, disk desteklemiyor, vb.) eskiden
+        // buradan hiç geçmeden "Good" varsayılıyordu — ekranda "Durum: İyi" yazarken
+        // altındaki tüm kartlar boş kalıyordu, kullanıcı bunu yanıltıcı/bozuk sanıyordu.
+        // Hiçbir gerçek sinyal yokken sağlık iddia etmek yanlış; Unknown daha doğru.
+        if (temperatureCelsius is null && remainingLifePercent is null)
+            return HealthStatus.Unknown;
+
         var status = HealthStatus.Good;
 
         if (temperatureCelsius is { } temp)

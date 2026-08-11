@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -456,7 +457,22 @@ public sealed class SmartctlSmartProvider : ISmartProvider
         foreach (var a in args) psi.ArgumentList.Add(a);
 
         using var proc = new Process { StartInfo = psi };
-        proc.Start();
+        try
+        {
+            proc.Start();
+        }
+        catch (Win32Exception ex)
+        {
+            // SORUN 5 (v1.0.0 gerçek kullanıcı raporu): smartctl.exe fiziksel olarak yoksa
+            // (veya PATH'te bulunamıyorsa) burada Win32Exception fırlar; eskiden ham,
+            // İngilizce OS mesajı ("The system cannot find the file specified") kullanıcıya
+            // hiçbir açıklama yapmadan HealthViewModel.Error'a düşüyordu. SORUN 3'ün
+            // açılış uyarısıyla aynı, anlaşılır Türkçe mesaja bağlanıyor.
+            throw new InvalidOperationException(
+                "smartctl bulunamadı. SMART disk sağlığı verisi bu eklenti olmadan okunamaz " +
+                "— uygulama açılışındaki uyarıya bakın veya README.md'deki kurulum adımını izleyin.",
+                ex);
+        }
 
         var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
         var stderrTask = proc.StandardError.ReadToEndAsync(ct);

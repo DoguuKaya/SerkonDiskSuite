@@ -38,10 +38,36 @@ public class HealthEvaluatorTests
     }
 
     [Fact]
-    public void NullMetrics_DefaultsToGood()
+    public void NullMetrics_ReturnsUnknown_NotGood()
     {
+        // SORUN 5 (v1.0.0 gerçek kullanıcı raporu): veri hiç yokken "Good" iddia etmek
+        // yanıltıcıydı ("Durum: İyi" yazarken tüm kartlar boştu). Artık Unknown döner.
         var result = HealthEvaluator.Evaluate(null, null, false);
+        Assert.Equal(HealthStatus.Unknown, result);
+    }
+
+    [Fact]
+    public void OnlyTemperatureKnown_StillEvaluatesNormally()
+    {
+        // Kalan ömür bilinmiyor olsa da sıcaklık tek başına yeterli bir sinyaldir —
+        // Unknown'a düşülmemeli (yalnızca İKİSİ DE null olduğunda düşülür).
+        var result = HealthEvaluator.Evaluate(temperatureCelsius: 30, remainingLifePercent: null, hasCriticalWarning: false);
         Assert.Equal(HealthStatus.Good, result);
+    }
+
+    [Fact]
+    public void OnlyRemainingLifeKnown_StillEvaluatesNormally()
+    {
+        var result = HealthEvaluator.Evaluate(temperatureCelsius: null, remainingLifePercent: 100, hasCriticalWarning: false);
+        Assert.Equal(HealthStatus.Good, result);
+    }
+
+    [Fact]
+    public void NullMetrics_WithCriticalWarning_StillBad()
+    {
+        // Kritik uyarı bayrağı en yüksek önceliğe sahip — veri eksikliği bunu geçersiz kılmaz.
+        var result = HealthEvaluator.Evaluate(null, null, hasCriticalWarning: true);
+        Assert.Equal(HealthStatus.Bad, result);
     }
 
     [Theory]

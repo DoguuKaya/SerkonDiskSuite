@@ -39,6 +39,44 @@ public sealed class HealthToBrushConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>
+/// SORUN 5 (v1.0.0 gerçek kullanıcı raporu): HealthStatus önceden hiç converter'sız
+/// bağlanıyordu, ekranda ham İngilizce enum adı ("Good"/"Bad"/"Caution"/"Unknown")
+/// görünüyordu — Türkçe arayüzde bu hem tutarsızdı hem de "Unknown" durumunda
+/// kullanıcıya hiçbir açıklama vermiyordu. Artık net Türkçe etiketler kullanılıyor;
+/// Unknown özellikle "veri yok" olduğunu (bir sağlık durumu DEĞİL) belirtiyor.
+/// </summary>
+public sealed class HealthStatusToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value switch
+        {
+            HealthStatus.Good => "İyi",
+            HealthStatus.Caution => "Dikkat",
+            HealthStatus.Bad => "Kötü",
+            HealthStatus.Unknown => "Veri Okunamadı",
+            _ => "Veri Okunamadı"
+        };
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>
+/// SORUN 5: Sıcaklık/Kalan Ömür/Kullanılabilir Yedek kartlarında değer null olduğunda
+/// (disk için bu veri okunamadığında) eskiden yalnızca birim ("°C", "%") çıplak
+/// görünüyordu — kullanıcı "bu bozuk mu" diye düşünüyordu. int? -> "-" veya sayı
+/// dizgesi (BytesToStringConverter/HoursToStringConverter ile aynı desen).
+/// </summary>
+public sealed class NullableIntToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is int i ? DisplayFormatting.FormatNumber(i) : "-";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Bayt (long) -> okunabilir "1.5 GB" gibi.</summary>
 public sealed class BytesToStringConverter : IValueConverter
 {

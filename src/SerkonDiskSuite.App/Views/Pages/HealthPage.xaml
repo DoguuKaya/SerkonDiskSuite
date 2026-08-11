@@ -53,7 +53,7 @@
                 <ui:Card Margin="4">
                     <StackPanel>
                         <TextBlock Text="Durum" Style="{StaticResource Muted}" />
-                        <TextBlock Text="{Binding Health.OverallStatus}"
+                        <TextBlock Text="{Binding Health.OverallStatus, Converter={StaticResource HealthStatusToString}}"
                                    FontSize="20" FontWeight="Bold"
                                    Foreground="{Binding Health.OverallStatus, Converter={StaticResource HealthToBrush}}" />
                     </StackPanel>
@@ -62,7 +62,7 @@
                     <StackPanel>
                         <TextBlock Text="Sıcaklık" Style="{StaticResource Muted}" />
                         <TextBlock FontSize="20" FontWeight="Bold">
-                            <Run Text="{Binding Health.TemperatureCelsius, Mode=OneWay}" />
+                            <Run Text="{Binding Health.TemperatureCelsius, Converter={StaticResource NullableIntToString}, Mode=OneWay}" />
                             <Run Text="°C" />
                         </TextBlock>
                     </StackPanel>
@@ -71,7 +71,7 @@
                     <StackPanel>
                         <TextBlock Text="Kalan Ömür" Style="{StaticResource Muted}" />
                         <TextBlock FontSize="20" FontWeight="Bold">
-                            <Run Text="{Binding Health.RemainingLifePercent, Mode=OneWay}" />
+                            <Run Text="{Binding Health.RemainingLifePercent, Converter={StaticResource NullableIntToString}, Mode=OneWay}" />
                             <Run Text="%" />
                         </TextBlock>
                     </StackPanel>
@@ -80,7 +80,7 @@
                     <StackPanel>
                         <TextBlock Text="Kullanılabilir Yedek" Style="{StaticResource Muted}" />
                         <TextBlock FontSize="20" FontWeight="Bold">
-                            <Run Text="{Binding Health.AvailableSparePercent, Mode=OneWay}" />
+                            <Run Text="{Binding Health.AvailableSparePercent, Converter={StaticResource NullableIntToString}, Mode=OneWay}" />
                             <Run Text="%" />
                         </TextBlock>
                     </StackPanel>
@@ -88,7 +88,7 @@
                 <ui:Card Margin="4">
                     <StackPanel>
                         <TextBlock Text="Açılma Sayısı" Style="{StaticResource Muted}" />
-                        <TextBlock Text="{Binding Health.PowerCycleCount, Mode=OneWay}"
+                        <TextBlock Text="{Binding Health.PowerCycleCount, Converter={StaticResource CountToString}, Mode=OneWay}"
                                    FontSize="20" FontWeight="Bold" />
                     </StackPanel>
                 </ui:Card>
