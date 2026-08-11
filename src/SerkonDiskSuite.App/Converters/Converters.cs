@@ -45,20 +45,26 @@ public sealed class HealthToBrushConverter : IValueConverter
 /// görünüyordu — Türkçe arayüzde bu hem tutarsızdı hem de "Unknown" durumunda
 /// kullanıcıya hiçbir açıklama vermiyordu. Artık net Türkçe etiketler kullanılıyor;
 /// Unknown özellikle "veri yok" olduğunu (bir sağlık durumu DEĞİL) belirtiyor.
+///
+/// SORUN 7 (v1.0.1 gerçek kullanıcı raporu): Caution durumu tek bir "Dikkat" metniyle
+/// gösteriliyordu, sıcaklık YÜKSEK olduğu için de kalan ömür AZ olduğu için de aynı kelime
+/// çıkıyordu — kullanıcı sıcaklık uyarısını diskin ömrünün azaldığı sanabiliyordu. Bu yüzden
+/// artık [0]=SmartHealth.OverallStatus, [1]=SmartHealth.CautionReason ile MultiBinding
+/// kullanılıyor; Caution+Temperature özel olarak "Isınıyor!" gösteriyor.
 /// </summary>
-public sealed class HealthStatusToStringConverter : IValueConverter
+public sealed class HealthStatusToStringConverter : IMultiValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        => value switch
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        => values switch
         {
-            HealthStatus.Good => "İyi",
-            HealthStatus.Caution => "Dikkat",
-            HealthStatus.Bad => "Kötü",
-            HealthStatus.Unknown => "Veri Okunamadı",
+            [HealthStatus.Caution, HealthCautionReason.Temperature] => "Isınıyor!",
+            [HealthStatus.Good, ..] => "İyi",
+            [HealthStatus.Caution, ..] => "Dikkat",
+            [HealthStatus.Bad, ..] => "Kötü",
             _ => "Veri Okunamadı"
         };
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
 

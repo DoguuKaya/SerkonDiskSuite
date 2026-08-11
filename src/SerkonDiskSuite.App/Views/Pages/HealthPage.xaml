@@ -53,9 +53,15 @@
                 <ui:Card Margin="4">
                     <StackPanel>
                         <TextBlock Text="Durum" Style="{StaticResource Muted}" />
-                        <TextBlock Text="{Binding Health.OverallStatus, Converter={StaticResource HealthStatusToString}}"
-                                   FontSize="20" FontWeight="Bold"
-                                   Foreground="{Binding Health.OverallStatus, Converter={StaticResource HealthToBrush}}" />
+                        <TextBlock FontSize="20" FontWeight="Bold"
+                                   Foreground="{Binding Health.OverallStatus, Converter={StaticResource HealthToBrush}}">
+                            <TextBlock.Text>
+                                <MultiBinding Converter="{StaticResource HealthStatusToString}">
+                                    <Binding Path="Health.OverallStatus" />
+                                    <Binding Path="Health.CautionReason" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
                     </StackPanel>
                 </ui:Card>
                 <ui:Card Margin="4">
@@ -76,7 +82,8 @@
                         </TextBlock>
                     </StackPanel>
                 </ui:Card>
-                <ui:Card Margin="4">
+                <ui:Card Margin="4"
+                         ToolTip="Bu değer sadece NVMe disklerinde bulunur (nvme_smart_health_information_log.available_spare). SATA/ATA disklerde smartctl'in standart bir karşılığı yoktur, bu yüzden bu tür disklerde her zaman &quot;-&quot; gösterir.">
                     <StackPanel>
                         <TextBlock Text="Kullanılabilir Yedek" Style="{StaticResource Muted}" />
                         <TextBlock FontSize="20" FontWeight="Bold">

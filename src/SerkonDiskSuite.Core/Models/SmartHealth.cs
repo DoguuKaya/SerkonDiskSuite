@@ -44,6 +44,12 @@ public sealed class SmartHealth
 
     /// <summary>Bu okumanın alındığı an.</summary>
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.Now;
+
+    /// <summary>OverallStatus Caution ise bunun HANGİ ölçüme dayandığı (sıcaklık mı, kalan
+    /// ömür mü). UI'nın "Dikkat" yerine sıcaklık için "Isınıyor!" gibi daha açık bir metin
+    /// göstermesi için — aksi halde kullanıcı sıcaklık uyarısını ömür azalması sanabiliyordu.
+    /// Caution değilse (Good/Bad/Unknown) None'dur.</summary>
+    public HealthCautionReason CautionReason { get; init; } = HealthCautionReason.None;
 }
 
 /// <summary>Tek bir SMART özniteliği (ID + isim + ham/normalleştirilmiş değer).</summary>
@@ -61,4 +67,12 @@ public enum HealthStatus
     Good,
     Caution,
     Bad
+}
+
+/// <summary>HealthStatus.Caution'ın hangi ölçüme dayandığını belirtir (bkz. SmartHealth.CautionReason).</summary>
+public enum HealthCautionReason
+{
+    None = 0,
+    Temperature,
+    RemainingLife
 }

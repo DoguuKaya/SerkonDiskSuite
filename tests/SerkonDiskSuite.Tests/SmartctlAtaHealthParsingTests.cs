@@ -246,6 +246,155 @@ public class SmartctlAtaHealthParsingTests
         Assert.Equal(85, health.RemainingLifePercent);
     }
 
+    // ---- SORUN 7 (v1.0.1 gerçek kullanıcı raporu): Berke'nin SanDisk SSD PLUS 480GB diskinde
+    // gerçek smartctl -a --json=c çıktısı yakalandı; ID 173 "Avg_Write_Erase_Ct" normalize
+    // değeri (92), CrystalDiskInfo'nun aynı diskte gösterdiği "İyi %92" ile birebir eşleşiyor. ----
+
+    [Fact]
+    public void ParseHealth_RealCapturedAvgWriteEraseCt_ReturnsRemainingLifeMatchingCrystalDiskInfo()
+    {
+        using var doc = JsonDocument.Parse("""
+            { "ata_smart_attributes": { "table": [
+                { "id": 173, "name": "Avg_Write_Erase_Ct", "value": 92, "worst": 92, "thresh": 0,
+                  "raw": { "value": 2933, "string": "2933" } }
+            ] } }
+            """);
+
+        var health = SmartctlSmartProvider.ParseHealth(@"\\.\PHYSICALDRIVE0", doc.RootElement);
+
+        Assert.Equal(92, health.RemainingLifePercent);
+    }
+
+    [Theory]
+    [InlineData("Disk_Health_Percentage")]
+    [InlineData("Wear_Range_Delta")]
+    [InlineData("Life_Used")]
+    public void ParseHealth_UnknownFamilyWithLifeWearHealthKeyword_FallsBackToKeywordMatch(string name)
+    {
+        // Bilinen isim listesi tükendiğinde (tamamen yeni/görülmemiş bir üretici ailesi),
+        // "wear"/"life"/"health" kelime parçası geçen bir öznitelik ikincil sinyal olarak
+        // kullanılmalı — tahmin döngüsüne yeniden girmemek için.
+        using var doc = JsonDocument.Parse($$"""
+            { "ata_smart_attributes": { "table": [
+                { "id": 250, "name": "{{name}}", "value": 77, "worst": 77, "thresh": 0,
+                  "raw": { "value": 1, "string": "1" } }
+            ] } }
+            """);
+
+        var health = SmartctlSmartProvider.ParseHealth(@"\\.\PHYSICALDRIVE0", doc.RootElement);
+
+        Assert.Equal(77, health.RemainingLifePercent);
+    }
+
+    [Fact]
+    public void ParseHealth_LifetimeWritesGiB_DoesNotMatchLifeKeywordFallback()
+    {
+        // Ham "Contains" olsaydı "Lifetime_Writes_GiB" ("life" segmenti değil "Lifetime")
+        // yanlışlıkla eşleşirdi — bu bir YÜZDE değil, toplam yazılan veri (GiB). Tam kelime
+        // parçası eşleşmesi bunu engelliyor.
+        using var doc = JsonDocument.Parse("""
+            { "ata_smart_attributes": { "table": [
+                { "id": 241, "name": "Lifetime_Writes_GiB", "value": 100, "worst": 100, "thresh": 0,
+                  "raw": { "value": 1014, "string": "1014" } }
+            ] } }
+            """);
+
+        var health = SmartctlSmartProvider.ParseHealth(@"\\.\PHYSICALDRIVE0", doc.RootElement);
+
+        Assert.Null(health.RemainingLifePercent);
+    }
+
+    [Fact]
+    public void ParseHealth_MediaWearoutIndicator_DoesNotMatchWearKeywordFallbackEither()
+    {
+        // "Wearout" segmenti tam olarak "Wear" değil — bilinçli dışlama (bkz. ana test dosyasının
+        // üstündeki Media_Wearout_Indicator testi) fallback'te de bozulmamalı.
+        using var doc = JsonDocument.Parse("""
+            { "ata_smart_attributes": { "table": [
+                { "id": 230, "name": "Media_Wearout_Indicator", "value": 1, "worst": 1, "thresh": 0,
+                  "raw": { "value": 1099511627823, "string": "0x010f005a010f" } }
+            ] } }
+            """);
+
+        var health = SmartctlSmartProvider.ParseHealth(@"\\.\PHYSICALDRIVE0", doc.RootElement);
+
+        Assert.Null(health.RemainingLifePercent);
+    }
+
+    // ---- ID tabanlı son çare (231 -> 232 -> 230): isim listesi tükendiğinde (smartctl bu modeli
+    // drivedb.h'da tanımıyor) devreye giren en son yol. ----
+
+    [Theory]
+    [InlineData(231)]
+    [InlineData(232)]
+    [InlineData(230)]
+    public void ParseHealth_UnknownNameWithKnownStandardId_FallsBackToIdMatch(int id)
+    {
+        using var doc = JsonDocument.Parse($$"""
+            { "ata_smart_attributes": { "table": [
+                { "id": {{id}}, "name": "Unknown_Attribute", "value": 61, "worst": 61, "thresh": 0,
+                  "raw": { "value": 39, "string": "39" } }
+            ] } }
+            """);
+
+        var health = SmartctlSmartProvider.ParseHealth(@"\\.\PHYSICALDRIVE0", doc.RootElement);
+
+        Assert.Equal(61, health.RemainingLifePercent);
+    }
+
+    [Fact]
+    public void ParseHealth_IdFallbackPrefersEarlierIdOverLaterTableEntry()
+    {
+        // 231 (SSD_Life_Left) 232'den (Perc_Avail_Resrvd_Space) önce denenmeli — tablodaki fiziksel
+        // sıralamadan bağımsız olarak.
+        using var doc = JsonDocument.Parse("""
+            { "ata_smart_attributes": { "table": [
+                { "id": 232, "name": "Unknown_Attribute", "value": 40, "worst": 40, "thresh": 0,
+                  "raw": { "value": 60, "string": "60" } },
+                { "id": 231, "name": "Unknown_Attribute", "value": 70, "worst": 70, "thresh": 0,
+                  "raw": { "value": 30, "string": "30" } }
+            ] } }
+            """);
+
+        var health = SmartctlSmartProvider.ParseHealth(@"\\.\PHYSICALDRIVE0", doc.RootElement);
+
+        Assert.Equal(70, health.RemainingLifePercent);
+    }
+
+    [Fact]
+    public void ParseHealth_KnownNameStillWinsOverIdFallback()
+    {
+        // İsim eşleşmesi bulunduğunda ID tabanlı son çareye hiç düşülmemeli.
+        using var doc = JsonDocument.Parse("""
+            { "ata_smart_attributes": { "table": [
+                { "id": 231, "name": "SSD_Life_Left", "value": 88, "worst": 88, "thresh": 0,
+                  "raw": { "value": 12, "string": "12" } }
+            ] } }
+            """);
+
+        var health = SmartctlSmartProvider.ParseHealth(@"\\.\PHYSICALDRIVE0", doc.RootElement);
+
+        Assert.Equal(88, health.RemainingLifePercent);
+    }
+
+    [Fact]
+    public void ParseHealth_MediaWearoutIndicatorAtId230_StillExcludedFromIdFallback()
+    {
+        // ID tabanlı son çare, ID 230 için "Media_Wearout_Indicator" adını da dışlamalı — aksi
+        // halde yukarıdaki isim tabanlı dışlama ID yoluyla arkadan dolanılıp bozulurdu (WD Blue/
+        // Red/Green SSDs ailesinde bu isim ters anlam taşıyor, bkz. TryGetAtaRemainingLifeById).
+        using var doc = JsonDocument.Parse("""
+            { "ata_smart_attributes": { "table": [
+                { "id": 230, "name": "Media_Wearout_Indicator", "value": 1, "worst": 1, "thresh": 0,
+                  "raw": { "value": 1099511627823, "string": "0x010f005a010f" } }
+            ] } }
+            """);
+
+        var health = SmartctlSmartProvider.ParseHealth(@"\\.\PHYSICALDRIVE0", doc.RootElement);
+
+        Assert.Null(health.RemainingLifePercent);
+    }
+
     [Fact]
     public void ParseHealth_NvmeDiskUnaffected_StillUsesPercentageUsedNotAtaPath()
     {

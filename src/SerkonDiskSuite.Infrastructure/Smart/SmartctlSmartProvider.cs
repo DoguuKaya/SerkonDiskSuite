@@ -251,6 +251,44 @@ public sealed class SmartctlSmartProvider : ISmartProvider
             }
         }
 
+        return TryGetAtaRemainingLifeById(table);
+    }
+
+    /// <summary>
+    /// İsim listesi hiçbir öznitelikle eşleşmediğinde (smartctl bu modeli drivedb.h'da tanımıyor
+    /// ve "name" alanı jenerik/beklenmedik bir değer taşıyor) son çare olarak üç endüstri-standart
+    /// ID'yi sırayla dener: 231 = SSD_Life_Left (en yaygın standart), 232 = Perc_Avail_Resrvd_Space,
+    /// 230 = Perc_Write/Erase_Count (bazı Marvell tabanlı SanDisk SSD ailelerinde). Üçü de VALUE
+    /// sütununda 100=sağlıklı, 0=ömrü bitmiş yönünde raporlanır — gerçek smartctl -a --json=c
+    /// çıktısıyla doğrulandı.
+    ///
+    /// ID 230 için "Media_Wearout_Indicator" adı bilinçli olarak dışlanıyor: bu isim "WD Blue /
+    /// Red / Green SSDs" ailesinde AYNI ID'yi taşır ama normalize değeri "kalan" değil "kullanılan"
+    /// yüzdeyi gösterir (ters anlam, bkz. yukarıdaki AtaRemainingLifeAttributeNames yorumu ve
+    /// github.com/v-zhuravlev/zbx-smartctl issue #148) — ID'ye güvenmenin isme güvenmekten daha az
+    /// güvenilir olduğunun tam da kanıtı, bu yüzden burada tek başına ID'ye değil ID+isim
+    /// dışlamasına dayanılıyor.
+    /// </summary>
+    private static readonly int[] AtaRemainingLifeAttributeIds = [231, 232, 230];
+
+    private static int? TryGetAtaRemainingLifeById(JsonElement table)
+    {
+        foreach (var candidateId in AtaRemainingLifeAttributeIds)
+        {
+            foreach (var attr in table.EnumerateArray())
+            {
+                if (!attr.TryGetProperty("id", out var idProp) || !idProp.TryGetInt32(out int id) || id != candidateId)
+                    continue;
+
+                string? name = attr.TryGetProperty("name", out var n) ? n.GetString() : null;
+                if (string.Equals(name, "Media_Wearout_Indicator", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (attr.TryGetProperty("value", out var v) && v.TryGetInt32(out int normalized))
+                    return Math.Clamp(normalized, 0, 100);
+            }
+        }
+
         return null;
     }
 
