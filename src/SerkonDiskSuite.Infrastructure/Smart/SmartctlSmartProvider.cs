@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using SerkonDiskSuite.Core.Interfaces;
@@ -216,13 +217,20 @@ public sealed class SmartctlSmartProvider : ISmartProvider
     /// kullanıcı raporunda (github.com/v-zhuravlev/zbx-smartctl issue #148) normalize değerinin
     /// "kalan" değil "kullanılan" yüzdeyi gösterdiği (ters anlam) belgelendi — yanlış ama
     /// kendinden emin bir sağlık durumu göstermek, "-" göstermekten daha kötü.
+    ///
+    /// "Avg_Write_Erase_Ct" (ID 173): madde 61'in drivedb.h'dan çıkardığı teorik "Lifetime_Remaining%"
+    /// (ID 201) adının aksine, SORUN'u bildiren kullanıcının (Berke, SanDisk SSD PLUS 480GB) GERÇEK
+    /// smartctl -a --json=c çıktısında gerçekten görülen isim — normalize değeri (92) CrystalDiskInfo'nun
+    /// aynı diskte gösterdiği "İyi %92" ile birebir eşleşiyor. Gerçek donanımdan doğrulandığı için
+    /// drivedb.h'dan çıkarılan teorik isimden daha güvenilir kabul ediliyor.
     /// </summary>
     private static readonly string[] AtaRemainingLifeAttributeNames =
     [
         "Percent_Lifetime_Remain",
         "Lifetime_Remaining", // "Lifetime_Remaining%" dahil (SanDisk SSD PLUS)
         "SSD_Life_Left",      // "SSD_Life_Left_Perc" dahil
-        "Wear_Leveling_Count"
+        "Wear_Leveling_Count",
+        "Avg_Write_Erase_Ct"
     ];
 
     private static int? TryGetAtaRemainingLife(JsonElement root)
@@ -251,7 +259,7 @@ public sealed class SmartctlSmartProvider : ISmartProvider
             }
         }
 
-        return TryGetAtaRemainingLifeById(table);
+        return TryGetAtaRemainingLifeById(table) ?? TryGetAtaRemainingLifeByKeyword(table);
     }
 
     /// <summary>
@@ -282,6 +290,42 @@ public sealed class SmartctlSmartProvider : ISmartProvider
 
                 string? name = attr.TryGetProperty("name", out var n) ? n.GetString() : null;
                 if (string.Equals(name, "Media_Wearout_Indicator", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (attr.TryGetProperty("value", out var v) && v.TryGetInt32(out int normalized))
+                    return Math.Clamp(normalized, 0, 100);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// İsim listesi VE ID listesi tükendiğinde (tamamen yeni/görülmemiş bir üretici ailesi) devreye
+    /// giren en son çare: adı "wear"/"life"/"health" kelime PARÇASINI (tam segment, "_" ile ayrılmış)
+    /// içeren bir öznitelik ikincil bir sinyal olarak kabul edilir. Tam segment eşleşmesi bilinçli —
+    /// ham "Contains" olsaydı "Lifetime_Writes_GiB" ("Lifetime" segmenti, "life" değil — bu bir YÜZDE
+    /// değil toplam yazılan veri) veya "Media_Wearout_Indicator" ("Wearout" segmenti, "wear" değil —
+    /// yukarıdaki AtaRemainingLifeAttributeNames'te ters anlamı yüzünden bilinçli dışlanan öznitelik)
+    /// yanlışlıkla eşleşirdi. Aday listesi burada da bir öncelik sırasıdır (yukarıdaki isim/ID
+    /// yöntemleriyle aynı gerekçe) — dış döngü tablo değil kelime listesi olmalı.
+    /// </summary>
+    private static readonly string[] AtaRemainingLifeKeywords = ["wear", "life", "health"];
+
+    private static int? TryGetAtaRemainingLifeByKeyword(JsonElement table)
+    {
+        foreach (var keyword in AtaRemainingLifeKeywords)
+        {
+            foreach (var attr in table.EnumerateArray())
+            {
+                string? name = attr.TryGetProperty("name", out var n) ? n.GetString() : null;
+                if (name is null)
+                    continue;
+
+                bool hasKeywordSegment = name
+                    .Split('_', StringSplitOptions.RemoveEmptyEntries)
+                    .Any(segment => string.Equals(segment, keyword, StringComparison.OrdinalIgnoreCase));
+                if (!hasKeywordSegment)
                     continue;
 
                 if (attr.TryGetProperty("value", out var v) && v.TryGetInt32(out int normalized))
