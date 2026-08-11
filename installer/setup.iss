@@ -10,7 +10,7 @@
 ;   ISCC /DAppVersion=1.0.0 installer\setup.iss
 
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.0.4"
 #endif
 
 #define AppName "Serkon Disk Suite"
